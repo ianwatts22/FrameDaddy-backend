@@ -9,13 +9,12 @@ const app = express()
 const sendblue = new Sendblue(process.env.SENDBLUE_API_KEY!, process.env.SENDBLUE_API_SECRET!)
 const sendblue_test = new Sendblue(process.env.SENDBLUE_TEST_API_KEY!, process.env.SENDBLUE_TEST_API_SECRET!)
 
-const link = 'link'
 const admin_numbers = ['+13104974985', '+19165919394', '+19498702865']    // Ian, Adam, Corn
 
 // Configure hostname & port
 const hostname = '127.0.0.1';
 const PORT = Number(process.env.PORT) || 8000
-// app.listen(PORT, hostname, () => { console.log(`Server running at http://${hostname}:${PORT}/`) });
+app.listen(PORT, hostname, () => { console.log(`Server running at http://${hostname}:${PORT}/`) });
 
 // middleware & static files, comes with express
 app.use(express.static('public'))
@@ -27,7 +26,7 @@ app.use(morgan('dev'))
 
 // * USER
 interface User {
-id?: number 
+  id?: number
   number: string
   name?: string
   gender?: string
@@ -67,15 +66,16 @@ interface Message {
 app.post('/order', async (req: express.Request, res: express.Response) => {
   const items = req.body.line_items
   console.log(new Date().toLocaleTimeString())
-  send_message({  })
+  
+  send_message({})
   res.status(200).end()
 })
 
-app.post('/webhook', (req: express.Request, res: express.Response) => {
+app.post('/message', (req: express.Request, res: express.Response) => {
   const message: Message = { content: req.body.content, media_url: req.body.media_url, number: req.body.number, was_downgraded: req.body.was_downgraded, is_outbound: false, date: req.body.date_sent, group_id: req.body.group_id }
   if (req.body.error_code) { send_message({ content: `ERROR: ${req.body.error_code} ${req.body.error_message}`, number: admin_numbers.toString() }) }
 
-  
+
   analyze_message(message, req.body.accountEmail)
 
   res.status(200).end()
@@ -99,54 +99,55 @@ async function send_message(message: Message, test?: boolean) {
 
 
 async function analyze_message(message: Message, accountEmail: string) {
-  
+
 }
 
 let send_style_options = new Set(["celebration", "shooting_star", "fireworks", "lasers", "love", "confetti", "balloons", "spotlight", "echo", "invisible", "gentle", "loud", "slam"])
 
 
 async function layerImage(media_url: string) {
-const data = {
-  params: [
-    {
-      url: 
+  const data = {
+    params: [
+      {
+        url: media_url, 
     }
-  ]
-};
+    ]
+  };
 
-const config = {
-  headers: {
-    Authorization: `Bearer ${DYNAPICTURES_API_KEY}`,
-    'Content-Type': 'application/json'
-  }
-};
+  const config = {
+    headers: {
+      Authorization: `Bearer ${process.env.DYNAPICTURES_API_KEY}`,
+      'Content-Type': 'application/json'
+    }
+  };
 
-axios.post(`https://api.dynapictures.com/designs/${DYNAPICTURES_UID}`, data, config)
-  .then(response => { console.log(response.data) })
-  .catch(error => { console.error(error) })
+  let DYNAPICTURES_UID = "1716a84db6"
+  axios.post(`https://api.dynapictures.com/designs/${DYNAPICTURES_UID}`, data, config)
+    .then(response => { console.log(response.data) })
+    .catch(error => { console.error(error) })
 }
 
 // https://rapidapi.com/mallabe1/api/mallabe
 async function getMetadata(image: string) {
-const options = {
-  method: 'POST',
-  url: 'https://mallabe.p.rapidapi.com/v1/images/metadata',
-  headers: {
-    'content-type': 'application/json',
-    'Content-Type': 'application/json',
-    'X-RapidAPI-Key': 'f77d3a4d3fmsh1bff3321e76babcp121367jsn15d1a29a159b',
-    'X-RapidAPI-Host': 'mallabe.p.rapidapi.com'
-  },
-  data: `{"url": ${image} }`
-}
+  const options = {
+    method: 'POST',
+    url: 'https://mallabe.p.rapidapi.com/v1/images/metadata',
+    headers: {
+      'content-type': 'application/json',
+      'Content-Type': 'application/json',
+      'X-RapidAPI-Key': process.env.MALLABE_API_KEY,
+      'X-RapidAPI-Host': 'mallabe.p.rapidapi.com'
+    },
+    data: `{"url": ${image} }`
+  }
 
- await axios.request(options)
-  .then(function (response) {
-	console.log(response.data)
-    return 
-}).catch(function (error) {
-	console.error(error);
-});
+  await axios.request(options)
+    .then(function(response) {
+      console.log(response.data)
+      return
+    }).catch(function(error) {
+      console.error(error);
+    });
 }
 
 // ====================================TESTING==================================
