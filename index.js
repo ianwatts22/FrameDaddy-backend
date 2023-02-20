@@ -12,18 +12,20 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+require('dotenv').config();
 const sendblue_1 = __importDefault(require("sendblue"));
 const axios_1 = __importDefault(require("axios"));
 const express_1 = __importDefault(require("express"));
 const morgan_1 = __importDefault(require("morgan"));
 const body_parser_1 = __importDefault(require("body-parser"));
+const phone_1 = __importDefault(require("phone"));
 const app = (0, express_1.default)();
 const sendblue = new sendblue_1.default(process.env.SENDBLUE_API_KEY, process.env.SENDBLUE_API_SECRET);
 const sendblue_test = new sendblue_1.default(process.env.SENDBLUE_TEST_API_KEY, process.env.SENDBLUE_TEST_API_SECRET);
 const admin_numbers = ['+13104974985', '+19165919394', '+19498702865']; // Ian, Adam, Corn
 // Configure hostname & port
 const hostname = '127.0.0.1';
-const PORT = Number(process.env.PORT) || 8000;
+const PORT = Number(process.env.PORT) || 2023;
 app.listen(PORT, hostname, () => { console.log(`Server running at http://${hostname}:${PORT}/`); });
 // middleware & static files, comes with express
 app.use(express_1.default.static('public'));
@@ -33,13 +35,27 @@ app.use((0, morgan_1.default)('dev'));
 // ======================================================================================
 // ========================================TESTING=======================================
 // ======================================================================================
+send_message({ content: 'hello world', number: '+13104974985' });
 // ======================================================================================
 // ========================================ROUTES========================================
 // ======================================================================================
-app.post('/order', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.post('/fdorder', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const items = req.body.line_items;
+    console.log(JSON.stringify(req.body));
     console.log(new Date().toLocaleTimeString());
-    send_message({});
+    const customer = { name: req.body.customer.first_name, email: req.body.customer.email, phone: (0, phone_1.default)(req.body.shipping_address.phone).phoneNumber, order_number: req.body.order_number };
+    yield send_message({ content: `you've been framed 😎 here's your order status (#${req.body.order_number}) ${req.body.order_status_url}`, number: customer.phone });
+    yield send_message({ content: "don’t forget to save my contact card for easy ordering", number: customer.phone });
+    res.status(200).end();
+}));
+app.post('/fdshipped', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const items = req.body.line_items;
+    console.log(JSON.stringify(req.body));
+    console.log(new Date().toLocaleTimeString());
+    const customer = { name: req.body.customer.first_name, email: req.body.customer.email, phone: (0, phone_1.default)(req.body.shipping_address.phone).phoneNumber, order_number: req.body.order_number };
+    // await send_message({ content: `you've been framed 😎 here's your order status (#${req.body.order_number}) ${req.body.order_status_url}`, number: customer.phone })
+    yield send_message({ content: `you've been framed 😎 here's your order status (#${req.body.order_number}) ${req.body.order_status_url}`, number: '+13104974985' });
+    // await send_message({ content: "don’t forget to save my contact card for easy ordering", number: customer.phone })
     res.status(200).end();
 }));
 app.post('/message', (req, res) => {
@@ -56,13 +72,13 @@ function send_message(message, test) {
         // console.log(` ! message to ${message.number}: ${message.content}`)
         message.date = new Date();
         message.is_outbound = true;
+        yield sendblue.sendMessage({ content: message.content, number: message.number, send_style: message.send_style, media_url: message.media_url }); // ! do we need status_callback? 
         let response;
-        if (test) {
-            response = yield sendblue_test.sendMessage({ content: message.content, number: message.number, send_style: message.send_style, media_url: message.media_url });
-        }
-        else {
-            response = yield sendblue.sendMessage({ content: message.content, number: message.number, send_style: message.send_style, media_url: message.media_url }); // ! do we need status_callback? 
-        }
+        /* if (test) {
+          response = await sendblue_test.sendMessage({ content: message.content, number: message.number!, send_style: message.send_style, media_url: message.media_url })
+        } else {
+          response = await sendblue.sendMessage({ content: message.content, number: message.number!, send_style: message.send_style, media_url: message.media_url }) // ! do we need status_callback?
+        } */
     });
 }
 // ==========================ANALYZE MESSAGE=========================
@@ -101,7 +117,7 @@ function getMetadata(image) {
             headers: {
                 'content-type': 'application/json',
                 'Content-Type': 'application/json',
-                'X-RapidAPI-Key': 'f77d3a4d3fmsh1bff3321e76babcp121367jsn15d1a29a159b',
+                'X-RapidAPI-Key': process.env.MALLABE_API_KEY,
                 'X-RapidAPI-Host': 'mallabe.p.rapidapi.com'
             },
             data: `{"url": ${image} }`
