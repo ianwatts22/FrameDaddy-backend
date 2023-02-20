@@ -63,11 +63,14 @@ interface Message {
 // ========================================ROUTES========================================
 // ======================================================================================
 
-app.post('/order', async (req: express.Request, res: express.Response) => {
+app.post('/fdorder', async (req: express.Request, res: express.Response) => {
   const items = req.body.line_items
+  console.log(req.body)
   console.log(new Date().toLocaleTimeString())
+
+  const customer: Customer = { name: req.body.customer.first_name, email: req.body.customer.email, phone: e164(req.body.shipping_address.phone).phoneNumber!, order_number: req.body.order_number }
   
-  send_message({})
+  send_message({ content: "don’t forget to save my contact card for easy ordering", number: customer.phone })
   res.status(200).end()
 })
 
