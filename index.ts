@@ -11,18 +11,10 @@ import { Coda } from 'coda-js'
 
 const app = express()
 const sendblue = new Sendblue(process.env.SENDBLUE_API_KEY!, process.env.SENDBLUE_API_SECRET!)
-const sendblue_test = new Sendblue(process.env.SENDBLUE_TEST_API_KEY!, process.env.SENDBLUE_TEST_API_SECRET!)
-
 const coda = new Coda(process.env.CODA_API_KEY!);
-
-const configuration = new Configuration({
-  organization: process.env.OPENAI_ORGANIZATION,
-  apiKey: process.env.OPENAI_API_KEY,
-  basePath: "https://oai.hconeai.com/v1"  // integration w/ Honeycone? usage service (changed name recently)
-});
-const openai = new OpenAIApi(configuration);
-
-const admin_numbers = ['+13104974985', '+19165919394', '+19498702865']    // Ian, Adam, Corn
+const configuration = new Configuration({ organization: process.env.OPENAI_ORGANIZATION, apiKey: process.env.OPENAI_API_KEY, basePath: "https://oai.hconeai.com/v1"  // integration w/ Honeycone? usage service (changed name recently)
+})
+const openai = new OpenAIApi(configuration)
 
 // Configure hostname & port
 const hostname = '127.0.0.1';
@@ -35,7 +27,15 @@ app.use(express.urlencoded({ extended: true }))
 app.use(bodyParser.json())
 app.use(morgan('dev'))
 
+// ========================================================================================
+// ========================================VARIABLES=======================================
+// ========================================================================================
+
+const admin_numbers = ['+13104974985', '+19165919394', '+19498702865']    // Ian, Adam, Corn
+
+// ========================================================================================
 // ========================================DATABASE========================================
+// ========================================================================================
 
 // * CUSTOMER
 interface Customer {
@@ -89,7 +89,7 @@ let abe = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Abraham_Lincoln_O
 
 // send_message({ content: 'hello world', number: '+13104974985' })
 
-test()
+/* test()
 async function test() {
   const docs = await coda.listDocs();
 
@@ -107,6 +107,21 @@ async function test() {
     const whoAmI = await coda.whoAmI();
     console.log(whoAmI);
   })().catch((error) => console.log(error));
+} */
+
+async function CodaAxios() {
+  const docId = '<doc ID>';
+  const tableId = '<table ID>';
+  const columnId = '<column ID>';
+  const payload = { 'rows': [{ 'cells': [
+        { 'column': columnId, 'value': 'Feed Baker' },
+      ], } ],
+  };
+
+  axios.post(`https://coda.io/apis/v1/docs/${docId}/tables/${tableId}/rows`, payload, {
+    headers: { Authorization: `Bearer ${process.env.CODA_API_KEY}` } })
+    .then((response) => { console.log(`Inserted ${response.data.insertedRowCount} row`) })
+    .catch((error) => { console.error(error) })
 }
 
 
@@ -221,12 +236,9 @@ async function layerImage(message: Message, media_url: string) {
   let orientation = metadata.data.orientation
   let response
 
-  let rotated
-  width > height ? rotated = false : rotated = true
-
   if ((width / height > 0.77 || width / height < 0.66) && (height / width > 0.77 || height / width < .66)) {
     send_message({ content: `looks like your photo's the wrong aspect ratio, follow the picture below (5:7 or 7:5 ratio) and send again`, number: message.number, media_url: 'https://ianwatts.site/assets/aspect_ratio_tutorial.png' })
-  } else if (rotated) {
+  } else if (width < height) {  // photo has been rotated
     orientation > 4 ? response = 'horizontal' : response = 'vertical'
   } else { orientation > 4 ? response = 'vertical' : response = 'horizontal' }
 
@@ -241,24 +253,4 @@ async function layerImage(message: Message, media_url: string) {
       return response.data.url
     })
     .catch(error => { console.error(error) })
-}
-
-// https://rapidapi.com/mallabe1/api/mallabe
-async function getMetadata(image: string) {
-
-}
-
-async function Coda() {
-  const docId = '<doc ID>';
-  const tableId = '<table ID>';
-  const columnId = '<column ID>';
-  const payload = { 'rows': [{ 'cells': [
-        { 'column': columnId, 'value': 'Feed Baker' },
-      ], } ],
-  };
-
-  axios.post(`https://coda.io/apis/v1/docs/${docId}/tables/${tableId}/rows`, payload, {
-    headers: { Authorization: `Bearer ${process.env.CODA_API_KEY}` } })
-    .then((response) => { console.log(`Inserted ${response.data.insertedRowCount} row`) })
-    .catch((error) => { console.error(error) })
 }
