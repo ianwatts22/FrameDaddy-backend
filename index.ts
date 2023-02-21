@@ -8,18 +8,19 @@ import cloudinary from 'cloudinary'
 import e164 from 'phone'
 import { Configuration, OpenAIApi } from "openai"
 import { Coda } from 'coda-js'
+import os from 'os'
 
 const app = express()
 const sendblue = new Sendblue(process.env.SENDBLUE_API_KEY!, process.env.SENDBLUE_API_SECRET!)
 const coda = new Coda(process.env.CODA_API_KEY!);
-const configuration = new Configuration({ organization: process.env.OPENAI_ORGANIZATION, apiKey: process.env.OPENAI_API_KEY, basePath: "https://oai.hconeai.com/v1"  // integration w/ Honeycone? usage service (changed name recently)
-})
+const configuration = new Configuration({ organization: process.env.OPENAI_ORGANIZATION, apiKey: process.env.OPENAI_API_KEY, basePath: "https://oai.hconeai.com/v1"  /* integration w/ Honeycone? usage service (changed name recently) */ })
 const openai = new OpenAIApi(configuration)
 
 // Configure hostname & port
-const hostname = '127.0.0.1';
-const PORT = Number(process.env.PORT) || 2023
-app.listen(PORT, hostname, () => { console.log(`Server running at http://${hostname}:${PORT}/`) });
+let hostname: string
+os.hostname().split('.').pop() === 'local' ? hostname = '127.0.0.1' : hostname = '0.0.0.0'
+const PORT = Number(process.env.PORT)
+app.listen(PORT, hostname, () => { console.log(`server at http://${hostname}:${PORT}/`) })
 
 // middleware & static files, comes with express
 app.use(express.static('public'))
@@ -130,6 +131,9 @@ async function CodaAxios() {
 // ======================================================================================
 
 app.post('/fdorder', async (req: express.Request, res: express.Response) => {
+  
+  
+  res.status(200).end()
   const items = req.body.line_items
   console.log(JSON.stringify(req.body))
   console.log(new Date().toLocaleTimeString())
@@ -138,7 +142,6 @@ app.post('/fdorder', async (req: express.Request, res: express.Response) => {
 
   await send_message({ content: `you've been framed 😎 here's your order status (#${req.body.order_number}) ${req.body.order_status_url}`, number: customer.phone })
   await send_message({ content: "don’t forget to save my contact card for easy ordering", number: customer.phone })
-  res.status(200).end()
 })
 
 app.post('/fdshipped', async (req: express.Request, res: express.Response) => {

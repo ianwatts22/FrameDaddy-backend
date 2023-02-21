@@ -21,16 +21,17 @@ const body_parser_1 = __importDefault(require("body-parser"));
 const phone_1 = __importDefault(require("phone"));
 const openai_1 = require("openai");
 const coda_js_1 = require("coda-js");
+const os_1 = __importDefault(require("os"));
 const app = (0, express_1.default)();
 const sendblue = new sendblue_1.default(process.env.SENDBLUE_API_KEY, process.env.SENDBLUE_API_SECRET);
 const coda = new coda_js_1.Coda(process.env.CODA_API_KEY);
-const configuration = new openai_1.Configuration({ organization: process.env.OPENAI_ORGANIZATION, apiKey: process.env.OPENAI_API_KEY, basePath: "https://oai.hconeai.com/v1" // integration w/ Honeycone? usage service (changed name recently)
-});
+const configuration = new openai_1.Configuration({ organization: process.env.OPENAI_ORGANIZATION, apiKey: process.env.OPENAI_API_KEY, basePath: "https://oai.hconeai.com/v1" /* integration w/ Honeycone? usage service (changed name recently) */ });
 const openai = new openai_1.OpenAIApi(configuration);
 // Configure hostname & port
-const hostname = '127.0.0.1';
-const PORT = Number(process.env.PORT) || 2023;
-app.listen(PORT, hostname, () => { console.log(`Server running at http://${hostname}:${PORT}/`); });
+let hostname;
+os_1.default.hostname().split('.').pop() === 'local' ? hostname = '127.0.0.1' : hostname = '0.0.0.0';
+const PORT = Number(process.env.PORT);
+app.listen(PORT, hostname, () => { console.log(`server at http://${hostname}:${PORT}/`); });
 // middleware & static files, comes with express
 app.use(express_1.default.static('public'));
 app.use(express_1.default.urlencoded({ extended: true }));
@@ -64,34 +65,52 @@ const admin_numbers = ['+13104974985', '+19165919394', '+19498702865']; // Ian, 
 // ======================================================================================
 let abe = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Abraham_Lincoln_O-77_matte_collodion_print.jpg';
 // send_message({ content: 'hello world', number: '+13104974985' })
-test();
-function test() {
+/* test()
+async function test() {
+  const docs = await coda.listDocs();
+
+  const firstDoc = docs[0];
+  const firstDocTables = await firstDoc.listTables();
+  console.log(firstDocTables);
+
+  const columns = await firstDocTables[0].listColumns();
+  console.log(columns.map((column) => column.name)); // list column names
+
+  const table = docs.getTable('grid-**********'); // insert/inject table name or ID here
+
+  // trick for using async in a script
+  (async () => {
+    const whoAmI = await coda.whoAmI();
+    console.log(whoAmI);
+  })().catch((error) => console.log(error));
+} */
+function CodaAxios() {
     return __awaiter(this, void 0, void 0, function* () {
-        const docs = yield coda.listDocs();
-        const firstDoc = docs[0];
-        const firstDocTables = yield firstDoc.listTables();
-        console.log(firstDocTables);
-        const columns = yield firstDocTables[0].listColumns();
-        console.log(columns.map((column) => column.name)); // list column names
-        const table = docs.getTable('grid-**********'); // insert/inject table name or ID here
-        // trick for using async in a script
-        (() => __awaiter(this, void 0, void 0, function* () {
-            const whoAmI = yield coda.whoAmI();
-            console.log(whoAmI);
-        }))().catch((error) => console.log(error));
+        const docId = '<doc ID>';
+        const tableId = '<table ID>';
+        const columnId = '<column ID>';
+        const payload = { 'rows': [{ 'cells': [
+                        { 'column': columnId, 'value': 'Feed Baker' },
+                    ], }],
+        };
+        axios_1.default.post(`https://coda.io/apis/v1/docs/${docId}/tables/${tableId}/rows`, payload, {
+            headers: { Authorization: `Bearer ${process.env.CODA_API_KEY}` }
+        })
+            .then((response) => { console.log(`Inserted ${response.data.insertedRowCount} row`); })
+            .catch((error) => { console.error(error); });
     });
 }
 // ======================================================================================
 // ========================================ROUTES========================================
 // ======================================================================================
 app.post('/fdorder', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    res.status(200).end();
     const items = req.body.line_items;
     console.log(JSON.stringify(req.body));
     console.log(new Date().toLocaleTimeString());
     const customer = { name: req.body.customer.first_name, email: req.body.customer.email, phone: (0, phone_1.default)(req.body.shipping_address.phone).phoneNumber, order_number: req.body.order_number };
     yield send_message({ content: `you've been framed 😎 here's your order status (#${req.body.order_number}) ${req.body.order_status_url}`, number: customer.phone });
     yield send_message({ content: "don’t forget to save my contact card for easy ordering", number: customer.phone });
-    res.status(200).end();
 }));
 app.post('/fdshipped', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     // ? do we need this
@@ -202,21 +221,5 @@ function layerImage(message, media_url) {
             return response.data.url;
         })
             .catch(error => { console.error(error); });
-    });
-}
-function CodaAxios() {
-    return __awaiter(this, void 0, void 0, function* () {
-        const docId = '<doc ID>';
-        const tableId = '<table ID>';
-        const columnId = '<column ID>';
-        const payload = { 'rows': [{ 'cells': [
-                        { 'column': columnId, 'value': 'Feed Baker' },
-                    ], }],
-        };
-        axios_1.default.post(`https://coda.io/apis/v1/docs/${docId}/tables/${tableId}/rows`, payload, {
-            headers: { Authorization: `Bearer ${process.env.CODA_API_KEY}` }
-        })
-            .then((response) => { console.log(`Inserted ${response.data.insertedRowCount} row`); })
-            .catch((error) => { console.error(error); });
     });
 }
