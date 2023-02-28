@@ -9,7 +9,6 @@ import e164 from 'phone'
 import { Configuration, OpenAIApi } from "openai"
 import { Coda } from 'coda-js'
 import os from 'os'
-import * as retry from 'ts-retry'
 import { isTooManyTries, retryAsync } from 'ts-retry'
 import cron from 'cron'
 
