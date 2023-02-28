@@ -4,7 +4,7 @@ import axios from 'axios'
 import express from 'express'
 import morgan from 'morgan'
 import bodyParser from 'body-parser'
-import cloudinary from 'cloudinary'
+import { v2 as cloudinary } from 'cloudinary'
 import e164 from 'phone'
 import { Configuration, OpenAIApi } from "openai"
 import { Coda } from 'coda-js'
@@ -33,6 +33,8 @@ const sendblue = new Sendblue(process.env.SENDBLUE_API_KEY!, process.env.SENDBLU
 const coda = new Coda(process.env.CODA_API_KEY!)
 const configuration = new Configuration({ organization: process.env.OPENAI_ORGANIZATION, apiKey: process.env.OPENAI_API_KEY })
 const openai = new OpenAIApi(configuration)
+cloudinary.config({ cloud_name: 'dpxdjc7qy', api_key: process.env.CLOUDINARY_API_KEY, api_secret: process.env.CLOUDINARY_API_SECRET, secure: true })
+
 // const shopify = shopifyApi({
 //   apiKey: process.env.SHOPIFY_API_KEY!, apiSecretKey: process.env.SHOPIFY_ADMIN_ACCESS_TOKEN!, apiVersion: LATEST_API_VERSION, isCustomStoreApp: true, scopes: ['read_products', 'read_orders', 'read_customers', 'read_order_edits',], isEmbeddedApp: true, hostName: hostname,
 // })
@@ -122,28 +124,19 @@ app.post('/message-status', (req: express.Request, res: express.Response) => {
 // ======================================================================================
 
 let abe = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Abraham_Lincoln_O-77_matte_collodion_print.jpg'
+let sample_photo = 'https://storage.googleapis.com/inbound-file-store/47yEEPvo_61175D25-640A-4EA4-A3A1-608BBBBD76DDIMG_2914.heic'
 
-let test_message: Message = { content: 'test_message', media_url: abe, number: '+13104974985', date: new Date() }
+let test_message: Message = {
+  content: 'test_message',
+  media_url: sample_photo,
+  // media_url: abe,
+  number: '+13104974985', date: new Date()
+}
 
-let users: string[]
-local_data()
-async function local_data() {
-  try {
-    const t0 = Date.now()
-
-    const Coda_doc = await coda.getDoc(coda_doc), Coda_users_table = await Coda_doc.getTable('grid-VBi-mmgrKi')
-    const columns = await Coda_users_table.listColumns(null)
-    const rows = await Coda_users_table.listRows({
-      useColumnNames: true, // param to display column names rather than key
-    })
-    users = rows.map((row) => (((row as { values: Object }).values) as { phone: string }).phone)
-    console.log(users)
-    /* let add_message = await Coda_messages_table.insertRows([
-      { content: message.content, picture: message.media_url, phone: message.number, "received (PST)": message.date }
-    ]) */
-    // console.log(JSON.stringify(add_message))
-    console.log(`${Date.now() - t0}ms - local_data`)
-  } catch (e) { console.log(e) }
+test()
+async function test() {
+  // console.log(await layer_image(test_message))
+  console.log(await cloudinary_edit(test_message))
 }
 
 // Shopify product info
@@ -161,6 +154,19 @@ let Sunday_products: number[]
 // ======================================================================================
 // ========================================FUNCTIONS=====================================
 // ======================================================================================
+
+let users: string[]
+local_data()
+async function local_data() {
+  try {
+    const t0 = Date.now()
+
+    const Coda_doc = await coda.getDoc(coda_doc), Coda_users_table = await Coda_doc.getTable('grid-VBi-mmgrKi')
+    const Coda_user_rows = await Coda_users_table.listRows({ useColumnNames: true })
+    users = Coda_user_rows.map((row) => (((row as { values: Object }).values) as { phone: string }).phone)
+    console.log(`${Date.now() - t0}ms - local_data ${users.length}`)
+  } catch (e) { console.log(e) }
+}
 
 const job = new cron.CronJob('0 0 */1 * *', async () => {
   local_data()
@@ -183,10 +189,10 @@ async function analyze_message(message: Message) {
     console.log('media message')
 
     // ? unsure if we still need this
-    if (message.media_url.includes('heic')) {
+    if (message.media_url.includes('heic') && false) {
       await send_message({ content: `looks like your photo's in the ☁️, follow the video below to save it to your phone and then resend. if that doesn't work use this converter! https://www.freeconvert.com/heic-to-jpg`, number: message.number!, media_url: 'http://message.textframedaddy.com/assets/heic_photo.mov' })
     } else {
-      const layered_image = await layerImage(message, message.media_url)
+      const layered_image = await cloudinary_edit(message)
 
       await send_message({ content: `here ya go ${layered_image}`, number: message.number!, media_url: layered_image! })
       await send_message({ content: `white or black? how many? (e.g., "1 black 1 white")`, number: message.number! })
@@ -258,41 +264,47 @@ async function analyze_message(message: Message) {
   // else if (message.content == 'reset') { content = 'reset' } // ! just for testing
 }
 
-// layerImage()
-async function layerImage(message: Message, media_url: string) {
-  // get metadata from Mallabe
-  const options = {
-    method: 'POST', url: 'https://mallabe.p.rapidapi.com/v1/images/metadata',
-    headers: { 'content-type': 'application/json', 'Content-Type': 'application/json', 'X-RapidAPI-Key': process.env.MALLABE_API_KEY, 'X-RapidAPI-Host': 'mallabe.p.rapidapi.com' },
-    data: `{"url": "${message.media_url}" }`
-  }
-  let metadata = await axios.request(options)
-  if (metadata.data.error) { console.log(metadata.data.error) }
-
-  const height = metadata.data.height, width = metadata.data.width, ratio = metadata.data.width / metadata.data.height, orientation = metadata.data.orientation
-  let DYNAPICTURES_UID
-  const horizontalUID = '7c60ad7674', verticalUID = '8d587bae26'
-
-  if ((width / height > 0.77 || width / height < 0.66) && (height / width > 0.77 || height / width < .66)) {
-    send_message({ content: `looks like your photo's the wrong aspect ratio, follow the picture below (5:7 or 7:5 ratio) and send again`, number: message.number, media_url: 'http://message.textframedaddy.com/assets/aspect_ratio_tutorial.png' })
-  } else if (width < height) {  // photo has been rotated
-    orientation > 4 ? DYNAPICTURES_UID = horizontalUID : DYNAPICTURES_UID = verticalUID
-  } else { orientation > 4 ? DYNAPICTURES_UID = verticalUID : DYNAPICTURES_UID = horizontalUID }
-
-  // layer image with Dynapictures
-  axios.post(`https://api.dynapictures.com/designs/${DYNAPICTURES_UID}`, { params: [{ url: abe }] }, { headers: { 'Authorization': `Bearer ${process.env.DYNAPICTURES_API_KEY}`, 'Content-Type': 'application/json' } })
-    .then(response => {
-      console.log(response.data)
-      return response.data.url
+async function cloudinary_edit(message: Message, entryID?: string) {
+  const t0 = Date.now()
+  console.log(` ! cloudinary_edit called`)
+  let public_id = `${message.number.substring(1)}_${message.date?.toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/[:,]/g, '').replace(/[/\s]/g, '-')}`
+  console.log(public_id)
+  try {
+    let data: any = await cloudinary.uploader.upload(message.media_url!, {
+      public_id: public_id,
+      folder: '/FrameDaddy',
+      // colors: true,
+      // media_metadata: true, // ! idk why not working
+      exif: true,              // ! supposed to be deprecated for media_metadata
     })
-    .catch(error => { console.error(error) })
+    
+    // ratio<1=normal, orientation<4 = landscape (1=left, 3=right), >4=portrait (6=up, 8=down)
+    let orientation = data.exif.Orientation, width = data.width, height = data.height, ratio = data.width / data.height, image: string, path = `u_v${data.version}:${data.public_id.replace(/\//g,':')}.${data.format}`
+    console.log(`path: ${path}`)
+    // console.log(`data: ${JSON.stringify(data)}`)
+
+
+    setTimeout(async () => {
+      if ((ratio > 0.77 || ratio < 0.66) && (1 / ratio > 0.77 || 1 / ratio < .66)) {
+        send_message({ content: `looks like your photo's the wrong aspect ratio, follow the picture below (5:7 or 7:5 ratio) and send again`, number: message.number, media_url: 'http://message.textframedaddy.com/assets/aspect_ratio_tutorial.png' })
+      } else if ((ratio < 1 && orientation > 4) || (ratio > 1 && orientation < 4)) {  // vertical
+        image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/l_v1677563168:FrameDaddy:assets:double_vertical.png/fl_layer_apply,g_north_west/${path}/e_distort:1216:2054:2158:2138:2052:3482:1055:3316/fl_layer_apply,g_north_west,x_0,y_0/${path}/e_distort:2957:2125:3881:2021:4119:3310:3158:3484/fl_layer_apply,g_north_west/cld-sample.jpg`
+        console.log(`vertical image ${image}`)
+        send_message({ content: `here's ya image`, media_url: image, number: message.number! })
+      } else if ((ratio < 1 && orientation < 4) || (ratio > 1 && orientation > 4)) {  // horizontal
+        image = abe
+        send_message({ content: `here's ya image`, media_url: image, number: message.number! })
+      }
+    }, 10000)
+    console.log(`${Date.now() - t0}ms - cloudinary_edit`)
+  } catch (error) { error_alert(error) }
 }
 
 async function send_message(message: Message, test?: boolean) {
   const t0 = Date.now()
   message.date = new Date(), message.is_outbound = true
   await sendblue.sendMessage({ content: message.content, number: message.number!, send_style: message.send_style, media_url: message.media_url, status_callback: `${link}/message-status` })
-  console.log(`${Date.now() - t0}ms - send_message: (${message.number}${message.content})`)
+  console.log(`${Date.now() - t0}ms - send_message: (${message.number}) ${message.content})`)
   await add_row(message)
 }
 

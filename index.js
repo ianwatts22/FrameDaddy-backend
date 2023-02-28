@@ -14,10 +14,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 require('dotenv').config();
 const sendblue_1 = __importDefault(require("sendblue"));
-const axios_1 = __importDefault(require("axios"));
 const express_1 = __importDefault(require("express"));
 const morgan_1 = __importDefault(require("morgan"));
 const body_parser_1 = __importDefault(require("body-parser"));
+const cloudinary_1 = require("cloudinary");
 const phone_1 = __importDefault(require("phone"));
 const openai_1 = require("openai");
 const coda_js_1 = require("coda-js");
@@ -43,6 +43,7 @@ const sendblue = new sendblue_1.default(process.env.SENDBLUE_API_KEY, process.en
 const coda = new coda_js_1.Coda(process.env.CODA_API_KEY);
 const configuration = new openai_1.Configuration({ organization: process.env.OPENAI_ORGANIZATION, apiKey: process.env.OPENAI_API_KEY });
 const openai = new openai_1.OpenAIApi(configuration);
+cloudinary_1.v2.config({ cloud_name: 'dpxdjc7qy', api_key: process.env.CLOUDINARY_API_KEY, api_secret: process.env.CLOUDINARY_API_SECRET, secure: true });
 // const shopify = shopifyApi({
 //   apiKey: process.env.SHOPIFY_API_KEY!, apiSecretKey: process.env.SHOPIFY_ADMIN_ACCESS_TOKEN!, apiVersion: LATEST_API_VERSION, isCustomStoreApp: true, scopes: ['read_products', 'read_orders', 'read_customers', 'read_order_edits',], isEmbeddedApp: true, hostName: hostname,
 // })
@@ -104,29 +105,18 @@ app.post('/message-status', (req, res) => {
 // ========================================TESTING=======================================
 // ======================================================================================
 let abe = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Abraham_Lincoln_O-77_matte_collodion_print.jpg';
-let test_message = { content: 'test_message', media_url: abe, number: '+13104974985', date: new Date() };
-let users;
-local_data();
-function local_data() {
+let sample_photo = 'https://storage.googleapis.com/inbound-file-store/47yEEPvo_61175D25-640A-4EA4-A3A1-608BBBBD76DDIMG_2914.heic';
+let test_message = {
+    content: 'test_message',
+    media_url: sample_photo,
+    // media_url: abe,
+    number: '+13104974985', date: new Date()
+};
+test();
+function test() {
     return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const t0 = Date.now();
-            const Coda_doc = yield coda.getDoc(coda_doc), Coda_users_table = yield Coda_doc.getTable('grid-VBi-mmgrKi');
-            const columns = yield Coda_users_table.listColumns(null);
-            const rows = yield Coda_users_table.listRows({
-                useColumnNames: true, // param to display column names rather than key
-            });
-            users = rows.map((row) => (row.values).phone);
-            console.log(users);
-            /* let add_message = await Coda_messages_table.insertRows([
-              { content: message.content, picture: message.media_url, phone: message.number, "received (PST)": message.date }
-            ]) */
-            // console.log(JSON.stringify(add_message))
-            console.log(`${Date.now() - t0}ms - local_data`);
-        }
-        catch (e) {
-            console.log(e);
-        }
+        // console.log(await layer_image(test_message))
+        console.log(yield cloudinary_edit(test_message));
     });
 }
 // Shopify product info
@@ -143,6 +133,22 @@ let Sunday_products;
 // ======================================================================================
 // ========================================FUNCTIONS=====================================
 // ======================================================================================
+let users;
+local_data();
+function local_data() {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const t0 = Date.now();
+            const Coda_doc = yield coda.getDoc(coda_doc), Coda_users_table = yield Coda_doc.getTable('grid-VBi-mmgrKi');
+            const Coda_user_rows = yield Coda_users_table.listRows({ useColumnNames: true });
+            users = Coda_user_rows.map((row) => (row.values).phone);
+            console.log(`${Date.now() - t0}ms - local_data ${users.length}`);
+        }
+        catch (e) {
+            console.log(e);
+        }
+    });
+}
 const job = new cron_1.default.CronJob('0 0 */1 * *', () => __awaiter(void 0, void 0, void 0, function* () {
     local_data();
     yield send_message({ content: `FrameDaddy CRON run`, number: '+13104974985' });
@@ -163,11 +169,11 @@ function analyze_message(message) {
         if (message.media_url) {
             console.log('media message');
             // ? unsure if we still need this
-            if (message.media_url.includes('heic')) {
+            if (message.media_url.includes('heic') && false) {
                 yield send_message({ content: `looks like your photo's in the ☁️, follow the video below to save it to your phone and then resend. if that doesn't work use this converter! https://www.freeconvert.com/heic-to-jpg`, number: message.number, media_url: 'http://message.textframedaddy.com/assets/heic_photo.mov' });
             }
             else {
-                const layered_image = yield layerImage(message, message.media_url);
+                const layered_image = yield cloudinary_edit(message);
                 yield send_message({ content: `here ya go ${layered_image}`, number: message.number, media_url: layered_image });
                 yield send_message({ content: `white or black? how many? (e.g., "1 black 1 white")`, number: message.number });
             }
@@ -232,38 +238,44 @@ function analyze_message(message) {
         }
     });
 }
-// layerImage()
-function layerImage(message, media_url) {
+function cloudinary_edit(message, entryID) {
+    var _a;
     return __awaiter(this, void 0, void 0, function* () {
-        // get metadata from Mallabe
-        const options = {
-            method: 'POST', url: 'https://mallabe.p.rapidapi.com/v1/images/metadata',
-            headers: { 'content-type': 'application/json', 'Content-Type': 'application/json', 'X-RapidAPI-Key': process.env.MALLABE_API_KEY, 'X-RapidAPI-Host': 'mallabe.p.rapidapi.com' },
-            data: `{"url": "${message.media_url}" }`
-        };
-        let metadata = yield axios_1.default.request(options);
-        if (metadata.data.error) {
-            console.log(metadata.data.error);
+        const t0 = Date.now();
+        console.log(` ! cloudinary_edit called`);
+        let public_id = `${message.number.substring(1)}_${(_a = message.date) === null || _a === void 0 ? void 0 : _a.toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/[:,]/g, '').replace(/[/\s]/g, '-')}`;
+        console.log(public_id);
+        try {
+            let data = yield cloudinary_1.v2.uploader.upload(message.media_url, {
+                public_id: public_id,
+                folder: '/FrameDaddy',
+                // colors: true,
+                // media_metadata: true, // ! idk why not working
+                exif: true, // ! supposed to be deprecated for media_metadata
+            });
+            // ratio<1=normal, orientation<4 = landscape (1=left, 3=right), >4=portrait (6=up, 8=down)
+            let orientation = data.exif.Orientation, width = data.width, height = data.height, ratio = data.width / data.height, image, path = `u_v${data.version}:${data.public_id.replace(/\//g, ':')}.${data.format}`;
+            console.log(`path: ${path}`);
+            // console.log(`data: ${JSON.stringify(data)}`)
+            setTimeout(() => __awaiter(this, void 0, void 0, function* () {
+                if ((ratio > 0.77 || ratio < 0.66) && (1 / ratio > 0.77 || 1 / ratio < .66)) {
+                    send_message({ content: `looks like your photo's the wrong aspect ratio, follow the picture below (5:7 or 7:5 ratio) and send again`, number: message.number, media_url: 'http://message.textframedaddy.com/assets/aspect_ratio_tutorial.png' });
+                }
+                else if ((ratio < 1 && orientation > 4) || (ratio > 1 && orientation < 4)) { // vertical
+                    image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/l_v1677563168:FrameDaddy:assets:double_vertical.png/fl_layer_apply,g_north_west/${path}/e_distort:1216:2054:2158:2138:2052:3482:1055:3316/fl_layer_apply,g_north_west,x_0,y_0/${path}/e_distort:2957:2125:3881:2021:4119:3310:3158:3484/fl_layer_apply,g_north_west/cld-sample.jpg`;
+                    console.log(`vertical image ${image}`);
+                    send_message({ content: `here's ya image`, media_url: image, number: message.number });
+                }
+                else if ((ratio < 1 && orientation < 4) || (ratio > 1 && orientation > 4)) { // horizontal
+                    image = abe;
+                    send_message({ content: `here's ya image`, media_url: image, number: message.number });
+                }
+            }), 10000);
+            console.log(`${Date.now() - t0}ms - cloudinary_edit`);
         }
-        const height = metadata.data.height, width = metadata.data.width, ratio = metadata.data.width / metadata.data.height, orientation = metadata.data.orientation;
-        let DYNAPICTURES_UID;
-        const horizontalUID = '7c60ad7674', verticalUID = '8d587bae26';
-        if ((width / height > 0.77 || width / height < 0.66) && (height / width > 0.77 || height / width < .66)) {
-            send_message({ content: `looks like your photo's the wrong aspect ratio, follow the picture below (5:7 or 7:5 ratio) and send again`, number: message.number, media_url: 'http://message.textframedaddy.com/assets/aspect_ratio_tutorial.png' });
+        catch (error) {
+            error_alert(error);
         }
-        else if (width < height) { // photo has been rotated
-            orientation > 4 ? DYNAPICTURES_UID = horizontalUID : DYNAPICTURES_UID = verticalUID;
-        }
-        else {
-            orientation > 4 ? DYNAPICTURES_UID = verticalUID : DYNAPICTURES_UID = horizontalUID;
-        }
-        // layer image with Dynapictures
-        axios_1.default.post(`https://api.dynapictures.com/designs/${DYNAPICTURES_UID}`, { params: [{ url: abe }] }, { headers: { 'Authorization': `Bearer ${process.env.DYNAPICTURES_API_KEY}`, 'Content-Type': 'application/json' } })
-            .then(response => {
-            console.log(response.data);
-            return response.data.url;
-        })
-            .catch(error => { console.error(error); });
     });
 }
 function send_message(message, test) {
@@ -271,7 +283,7 @@ function send_message(message, test) {
         const t0 = Date.now();
         message.date = new Date(), message.is_outbound = true;
         yield sendblue.sendMessage({ content: message.content, number: message.number, send_style: message.send_style, media_url: message.media_url, status_callback: `${link}/message-status` });
-        console.log(`${Date.now() - t0}ms - send_message: (${message.number}${message.content})`);
+        console.log(`${Date.now() - t0}ms - send_message: (${message.number}) ${message.content})`);
         yield add_row(message);
     });
 }

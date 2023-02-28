@@ -17,10 +17,7 @@ Technology: Node.js app using Express and Axios, Sendblue API for texting, Coda 
 [node-exif](https://github.com/gomfunkel/node-exif)
 image size: [StackOverflow](https://stackoverflow.com/questions/48889903/get-image-dimensions-in-zapier-with-javascript)
 
-* [AirEXIF](https://rapidapi.com/studio-xolo-studio-xolo-api/api/airexif2): [article](https://medium.com/airexif/how-to-automatically-extract-exif-metadata-from-photos-in-airtable-without-code-5ce44b62bee4)
-* [image orientation](https://eorvain-app.medium.com/image-orientation-on-ios-abaf8321820b): 
-  * 1 = landscape left, 3 = landscape right
-  * 6 = portrait up, 8 = portrait down
+* [image orientation](https://eorvain-app.medium.com/image-orientation-on-ios-abaf8321820b)
 
 ### internal interface
 
