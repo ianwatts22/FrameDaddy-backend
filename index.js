@@ -52,6 +52,7 @@ cloudinary_1.v2.config({ cloud_name: 'dpxdjc7qy', api_key: process.env.CLOUDINAR
 // ========================================================================================
 // ========================================VARIABLES=======================================
 // ========================================================================================
+// TODO: setup group message
 const admin_numbers = ['+13104974985', '+19165919394', '+19498702865']; // Ian, Adam, Corn
 const coda_doc = 'Wkshedo2Sb', coda_table = 'grid-_v0sM6s7e1';
 // const Coda_messages_table = coda.getTable(coda_doc, coda_table)
@@ -81,6 +82,9 @@ app.post('/message', (req, res) => {
         const t0 = Date.now();
         const message = { content: req.body.content, media_url: req.body.media_url, number: req.body.number, was_downgraded: req.body.was_downgraded, is_outbound: false, date: req.body.date_sent };
         res.status(200).end();
+        send_message({ content: `we're temporarily down as we implement AI and improved responses. we'll be back ASAP and let you know when we're back up. thanks for your patience!`, number: message.number });
+        send_message({ content: `message: ${message.number}`, number: '+13104974985' });
+        return;
         analyze_message(message);
         console.log(`${Date.now() - t0}ms - /message: (${message.number}) ${message.content}`);
     }
@@ -142,7 +146,7 @@ function local_data() {
             const Coda_doc = yield coda.getDoc(coda_doc), Coda_users_table = yield Coda_doc.getTable('grid-VBi-mmgrKi');
             const Coda_user_rows = yield Coda_users_table.listRows({ useColumnNames: true });
             users = Coda_user_rows.map((row) => (row.values).phone);
-            console.log(`${Date.now() - t0}ms - local_data ${users.length}`);
+            console.log(`${Date.now() - t0}ms - local_data - users: ${users.length}`);
         }
         catch (e) {
             console.log(e);
@@ -157,51 +161,24 @@ job.start();
 function analyze_message(message) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
+        const t0 = Date.now();
         add_row(message);
         if (!users.includes(message.number)) { // check for new user
             console.log('new user');
             yield send_message({ content: `hey I'm TextFrameDaddy.com! the easiest way to put a 5x7 photo in a frame. this is an AI chatbot so feel free to speak naturally. my capabilities are limited now but I'm always adding more! add my contact below`, number: message.number, media_url: 'http://message.textframedaddy.com/assets/FrameDaddy.vcf' });
             yield send_message({ content: 'send a photo to get started!', number: message.number });
+            users.push(message.number);
             return;
         }
-        users.push(message.number);
         console.log('existing user');
         if (message.media_url) {
             console.log('media message');
-            // ? unsure if we still need this
-            if (message.media_url.includes('heic') && false) {
-                yield send_message({ content: `looks like your photo's in the ☁️, follow the video below to save it to your phone and then resend. if that doesn't work use this converter! https://www.freeconvert.com/heic-to-jpg`, number: message.number, media_url: 'http://message.textframedaddy.com/assets/heic_photo.mov' });
-            }
-            else {
-                const layered_image = yield cloudinary_edit(message);
-                yield send_message({ content: `here ya go ${layered_image}`, number: message.number, media_url: layered_image });
-                yield send_message({ content: `white or black? how many? (e.g., "1 black 1 white")`, number: message.number });
-            }
+            const layered_image = yield cloudinary_edit(message);
         }
         if (!message.content) {
             return;
         }
-        /* let content_parsed = message.content.replace(/[^\w\s]/g, "").split(/ /g)
-        let white = message.content.includes('white')
-        let black = message.content.includes('black')
-        let whiteQuantity = Number(content_parsed[content_parsed.indexOf('white') - 1])
-        let blackQuantity = Number(content_parsed[content_parsed.indexOf('black') - 1])
-        if (message.content.match(/\d/g) || white || black) { */
-        /* try {
-          await retryAsync(
-            async () => {
-      
-            },
-            { delay: 100, maxTry: 3, }
-          );
-        } catch (err) {
-          if (isTooManyTries(err)) {
-            error_alert(err)
-          } else { error_alert(err) }
-        } */
-        // TODO implement retry feature if response isn't one of two?
-        // if (await category()) { }
-        const category = () => __awaiter(this, void 0, void 0, function* () {
+        const categorize = () => __awaiter(this, void 0, void 0, function* () {
             var _b;
             try {
                 const category = yield openai.createCompletion({
@@ -214,27 +191,39 @@ function analyze_message(message) {
                 return null;
             }
         });
-        const category_lc = yield category();
-        console.log(`category_lc: ${category_lc}`);
-        if (category_lc.includes('order')) {
+        const category = yield categorize();
+        console.log(`category_lc: ${category}`);
+        if (!category || (!category.includes('order') && !category.includes('order'))) {
+            error_alert(` ! miscategorization (${message.number}): '${message.content}'\ncategory: ${category}`, message);
+            yield send_message({ content: `¿yo no comprendo 🤷‍♂️? Somebody will reach out shortly`, number: message.number });
+            return;
+        }
+        // TODO implement retry feature if response isn't one of two?
+        /* try {
+          await retryAsync( async () => {
+        
+            }, { delay: 100, maxTry: 3, } )
+        } catch (err) {
+          if (isTooManyTries(err)) { error_alert(err)
+          } else { error_alert(err) }
+        } */
+        if (category.includes('order')) {
             let openAIResponse = yield openai.createCompletion({
                 model: 'text-davinci-003',
                 prompt: `Extract the quantity of "black" and "white" desired from the text below. Return the quantities in the following format: <black quantities>,<white quantities>\nText: ${message.content}\nValues:`
             });
+            // remove blank space from response, split into array
             const quantities = (_a = openAIResponse.data.choices[0].text) === null || _a === void 0 ? void 0 : _a.toString().replace(/[^0-9,]/g, '').split(',');
+            // TODO: check if quantities are valid
             yield send_message({ content: `nice choice. i’ll get this shipped out ASAP. click the link to checkout: https://textframedaddy.com/cart/43286555033836:${quantities[0]},43480829198572:${quantities[1]}`, number: message.number });
         }
-        else if (category_lc.includes('help')) {
+        else if (category.includes('help')) {
             let openAIResponse = yield openai.createCompletion({
                 model: 'text-davinci-003', max_tokens: 128,
                 prompt: `You are a superintelligent customer support chatbot. Guide the customer along and answer any questions. You operate over text message so keep responses brief and casual. The following is a description of our product/service\n - users text a photo (portrait or landscape) they want framed to get started\n - photos are printed 5"x7" in black or white frames for $24.99\n - Adam and Alex lovingly handframe, package, and ship your photo from New York\n - frames have a wall-hook and easel-back to hang or stand up\n - if you prefer, or are having troubles with the texting service, you can upload your photo to textframedaddy.com\nIf you cannot help the customer or they want to speak to a representative, put "SUPPORT" as the response.\nThe customer has sent the following message:\n
       Text: ${message.content}\nResponse:`
             });
             yield send_message({ content: openAIResponse.data.choices[0].text, number: message.number });
-        }
-        else {
-            yield send_message({ content: `¿yo no comprendo 🤷‍♂️? Somebody will reach out shortly`, number: message.number });
-            yield send_message({ content: `SUPPORT (${message.number})\n${message.content}`, number: message.number });
         }
     });
 }
@@ -247,29 +236,28 @@ function cloudinary_edit(message, entryID) {
         console.log(public_id);
         try {
             let data = yield cloudinary_1.v2.uploader.upload(message.media_url, {
-                public_id: public_id,
-                folder: '/FrameDaddy',
-                // colors: true,
-                // media_metadata: true, // ! idk why not working
-                exif: true, // ! supposed to be deprecated for media_metadata
+                public_id: public_id, folder: '/FrameDaddy/submissions',
+                exif: true, // media_metadata: true, // ! 'exif' supposed to be deprecated for 'media_metadata', which isn't working
             });
             // ratio<1=normal, orientation<4 = landscape (1=left, 3=right), >4=portrait (6=up, 8=down)
             let orientation = data.exif.Orientation, width = data.width, height = data.height, ratio = data.width / data.height, image, path = `u_v${data.version}:${data.public_id.replace(/\//g, ':')}.${data.format}`;
             console.log(`path: ${path}`);
-            // console.log(`data: ${JSON.stringify(data)}`)
+            // return
+            if ((ratio > 0.77 || ratio < 0.66) && (1 / ratio > 0.77 || 1 / ratio < .66)) {
+                yield send_message({ content: `looks like your photo's the wrong aspect ratio, follow the picture below (5:7 or 7:5 ratio) and send again`, number: message.number, media_url: 'http://message.textframedaddy.com/assets/aspect_ratio_tutorial.png' });
+            }
+            else {
+                if ((ratio < 1 && orientation > 4) || (ratio > 1 && orientation < 4)) { // vertical
+                    image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/l_v1677563168:FrameDaddy:assets:double_vertical.png/fl_layer_apply,g_north_west/${path}/e_distort:362:680:1169:680:1162:1283:361:1285/fl_layer_apply,g_north_west,x_0,y_0/${path}/e_distort:2451:658:3300:649:3301:1274:2452:1277/fl_layer_apply,g_north_west/cld-sample.jpg`;
+                }
+                else { // horizontal ((ratio < 1 && orientation < 4) || (ratio > 1 && orientation > 4))
+                    image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/l_v1677563168:FrameDaddy:assets:double_horizontal.png/fl_layer_apply,g_north_west/${path}/e_distort:1216:2054:2158:2138:2052:3482:1055:3316/fl_layer_apply,g_north_west,x_0,y_0/${path}/e_distort:2957:2125:3881:2021:4119:3310:3158:3484/fl_layer_apply,g_north_west/cld-sample.jpg`;
+                }
+                console.log(`image: ${image}`);
+                yield send_message({ content: `here ya go`, media_url: image, number: message.number });
+                send_message({ content: `how many of each frame do you want?`, number: message.number });
+            }
             setTimeout(() => __awaiter(this, void 0, void 0, function* () {
-                if ((ratio > 0.77 || ratio < 0.66) && (1 / ratio > 0.77 || 1 / ratio < .66)) {
-                    send_message({ content: `looks like your photo's the wrong aspect ratio, follow the picture below (5:7 or 7:5 ratio) and send again`, number: message.number, media_url: 'http://message.textframedaddy.com/assets/aspect_ratio_tutorial.png' });
-                }
-                else if ((ratio < 1 && orientation > 4) || (ratio > 1 && orientation < 4)) { // vertical
-                    image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/l_v1677563168:FrameDaddy:assets:double_vertical.png/fl_layer_apply,g_north_west/${path}/e_distort:1216:2054:2158:2138:2052:3482:1055:3316/fl_layer_apply,g_north_west,x_0,y_0/${path}/e_distort:2957:2125:3881:2021:4119:3310:3158:3484/fl_layer_apply,g_north_west/cld-sample.jpg`;
-                    console.log(`vertical image ${image}`);
-                    send_message({ content: `here's ya image`, media_url: image, number: message.number });
-                }
-                else if ((ratio < 1 && orientation < 4) || (ratio > 1 && orientation > 4)) { // horizontal
-                    image = abe;
-                    send_message({ content: `here's ya image`, media_url: image, number: message.number });
-                }
             }), 10000);
             console.log(`${Date.now() - t0}ms - cloudinary_edit`);
         }
@@ -283,7 +271,7 @@ function send_message(message, test) {
         const t0 = Date.now();
         message.date = new Date(), message.is_outbound = true;
         yield sendblue.sendMessage({ content: message.content, number: message.number, send_style: message.send_style, media_url: message.media_url, status_callback: `${link}/message-status` });
-        console.log(`${Date.now() - t0}ms - send_message: (${message.number}) ${message.content})`);
+        console.log(`${Date.now() - t0}ms - send_message: (${message.number}) ${message.content}`);
         yield add_row(message);
     });
 }
@@ -310,7 +298,7 @@ function add_row(message) {
 }
 function error_alert(error, message) {
     return __awaiter(this, void 0, void 0, function* () {
-        // await send_message({ content: `ERROR: ${error}`, number: admin_numbers.toString() })
+        yield send_message({ content: `ERROR\n${error}`, number: '+13104974985' });
         console.error(`ERROR: ${error}`);
     });
 }
