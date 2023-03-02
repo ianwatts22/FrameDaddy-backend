@@ -82,9 +82,6 @@ app.post('/message', (req, res) => {
         const t0 = Date.now();
         const message = { content: req.body.content, media_url: req.body.media_url, number: req.body.number, was_downgraded: req.body.was_downgraded, is_outbound: false, date: req.body.date_sent };
         res.status(200).end();
-        send_message({ content: `we're temporarily down as we implement AI and improved responses. we'll be back ASAP and let you know when we're back up. thanks for your patience!`, number: message.number });
-        send_message({ content: `message: ${message.number}`, number: '+13104974985' });
-        return;
         analyze_message(message);
         console.log(`${Date.now() - t0}ms - /message: (${message.number}) ${message.content}`);
     }
@@ -108,23 +105,12 @@ app.post('/message-status', (req, res) => {
 // ======================================================================================
 // ========================================TESTING=======================================
 // ======================================================================================
-let abe = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Abraham_Lincoln_O-77_matte_collodion_print.jpg';
-let sample_photo = 'https://storage.googleapis.com/inbound-file-store/47yEEPvo_61175D25-640A-4EA4-A3A1-608BBBBD76DDIMG_2914.heic';
-let test_message = {
-    content: 'test_message',
-    media_url: sample_photo,
-    // media_url: abe,
-    number: '+13104974985', date: new Date()
-};
-test();
+const abe = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Abraham_Lincoln_O-77_matte_collodion_print.jpg', sample_photo = 'https://storage.googleapis.com/inbound-file-store/47yEEPvo_61175D25-640A-4EA4-A3A1-608BBBBD76DDIMG_2914.heic';
+let test_message = { content: 'test_message', number: '+13104974985', date: new Date(), media_url: sample_photo, };
+// test()
 function test() {
-    return __awaiter(this, void 0, void 0, function* () {
-        // console.log(await layer_image(test_message))
-        console.log(yield cloudinary_edit(test_message));
-    });
+    return __awaiter(this, void 0, void 0, function* () { console.log(yield cloudinary_edit(test_message)); });
 }
-// Shopify product info
-let Sunday_products;
 // product_update()
 /* async function product_update() {
   const startTime = Date.now()
@@ -172,8 +158,7 @@ function analyze_message(message) {
         }
         console.log('existing user');
         if (message.media_url) {
-            console.log('media message');
-            const layered_image = yield cloudinary_edit(message);
+            yield cloudinary_edit(message);
         }
         if (!message.content) {
             return;
@@ -183,7 +168,7 @@ function analyze_message(message) {
             try {
                 const category = yield openai.createCompletion({
                     model: 'text-davinci-003',
-                    prompt: `Categorize the following text into one of the following: ["help", "order quantity"]\nText: ${message.content}\nCategory:`
+                    prompt: `Categorize the following text into one of the following: ["help", "order quantity"]. Example:\nText: I'll take 2 white frames and three black\nCategory: "order quantity"\nText: how does this work and how much do the frames cost?\nCategory: "help"\n\nText: how many frames can I get?\nCategory: "help"\n###\nText: ${message.content}\nCategory:`
                 });
                 return (_b = category.data.choices[0].text) === null || _b === void 0 ? void 0 : _b.toLowerCase();
             }
@@ -193,7 +178,7 @@ function analyze_message(message) {
         });
         const category = yield categorize();
         console.log(`category_lc: ${category}`);
-        if (!category || (!category.includes('order') && !category.includes('order'))) {
+        if (!category || (!category.includes('order') && !category.includes('help'))) {
             error_alert(` ! miscategorization (${message.number}): '${message.content}'\ncategory: ${category}`, message);
             yield send_message({ content: `¿yo no comprendo 🤷‍♂️? Somebody will reach out shortly`, number: message.number });
             return;
@@ -220,7 +205,7 @@ function analyze_message(message) {
         else if (category.includes('help')) {
             let openAIResponse = yield openai.createCompletion({
                 model: 'text-davinci-003', max_tokens: 128,
-                prompt: `You are a superintelligent customer support chatbot. Guide the customer along and answer any questions. You operate over text message so keep responses brief and casual. The following is a description of our product/service\n - users text a photo (portrait or landscape) they want framed to get started\n - photos are printed 5"x7" in black or white frames for $24.99\n - Adam and Alex lovingly handframe, package, and ship your photo from New York\n - frames have a wall-hook and easel-back to hang or stand up\n - if you prefer, or are having troubles with the texting service, you can upload your photo to textframedaddy.com\nIf you cannot help the customer or they want to speak to a representative, put "SUPPORT" as the response.\nThe customer has sent the following message:\n
+                prompt: `You are a superintelligent customer support chatbot. Guide the customer along and answer any questions. You operate over text message so keep responses brief and casual. Answer their questions specifically, do not provide too much extraneious information. The following is a description of our product/service\n - users text a photo (portrait or landscape) they want framed to get started\n - photos are printed 5"x7" in black or white frames for $24.99\n - Adam and Alex lovingly handframe, package, and ship your photo from New York\n - frames have a wall-hook and easel-back to hang or stand up\n - if you prefer, or are having troubles with the texting service, you can upload your photo to textframedaddy.com\nIf you cannot help the customer or they want to speak to a representative, put "SUPPORT" as the response.\nThe customer has sent the following message:\n
       Text: ${message.content}\nResponse:`
             });
             yield send_message({ content: openAIResponse.data.choices[0].text, number: message.number });
@@ -231,7 +216,6 @@ function cloudinary_edit(message, entryID) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
         const t0 = Date.now();
-        console.log(` ! cloudinary_edit called`);
         let public_id = `${message.number.substring(1)}_${(_a = message.date) === null || _a === void 0 ? void 0 : _a.toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/[:,]/g, '').replace(/[/\s]/g, '-')}`;
         console.log(public_id);
         try {
@@ -240,25 +224,25 @@ function cloudinary_edit(message, entryID) {
                 exif: true, // media_metadata: true, // ! 'exif' supposed to be deprecated for 'media_metadata', which isn't working
             });
             // ratio<1=normal, orientation<4 = landscape (1=left, 3=right), >4=portrait (6=up, 8=down)
-            let orientation = data.exif.Orientation, width = data.width, height = data.height, ratio = data.width / data.height, image, path = `u_v${data.version}:${data.public_id.replace(/\//g, ':')}.${data.format}`;
+            let orientation = data.exif.Orientation, width = data.width, height = data.height, ratio = data.width / data.height, path = `u_v${data.version}:${data.public_id.replace(/\//g, ':')}.${data.format}`;
             console.log(`path: ${path}`);
             // return
             if ((ratio > 0.77 || ratio < 0.66) && (1 / ratio > 0.77 || 1 / ratio < .66)) {
                 yield send_message({ content: `looks like your photo's the wrong aspect ratio, follow the picture below (5:7 or 7:5 ratio) and send again`, number: message.number, media_url: 'http://message.textframedaddy.com/assets/aspect_ratio_tutorial.png' });
             }
             else {
+                let setup, distort; // distort [left, right]
                 if ((ratio < 1 && orientation > 4) || (ratio > 1 && orientation < 4)) { // vertical
-                    image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/l_v1677563168:FrameDaddy:assets:double_vertical.png/fl_layer_apply,g_north_west/${path}/e_distort:362:680:1169:680:1162:1283:361:1285/fl_layer_apply,g_north_west,x_0,y_0/${path}/e_distort:2451:658:3300:649:3301:1274:2452:1277/fl_layer_apply,g_north_west/cld-sample.jpg`;
+                    setup = 'vertical', distort = ['1216:2054:2158:2138:2052:3482:1055:3316', '2957:2125:3881:2021:4119:3310:3158:3484'];
                 }
                 else { // horizontal ((ratio < 1 && orientation < 4) || (ratio > 1 && orientation > 4))
-                    image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/l_v1677563168:FrameDaddy:assets:double_horizontal.png/fl_layer_apply,g_north_west/${path}/e_distort:1216:2054:2158:2138:2052:3482:1055:3316/fl_layer_apply,g_north_west,x_0,y_0/${path}/e_distort:2957:2125:3881:2021:4119:3310:3158:3484/fl_layer_apply,g_north_west/cld-sample.jpg`;
+                    setup = 'horizontal', distort = ['362:680:1169:680:1162:1283:361:1285', '2451:658:3300:649:3301:1274:2452:1277'];
                 }
+                const image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/l_v1677563168:FrameDaddy:assets:double_${setup}.png/fl_layer_apply,g_north_west/${path}/e_distort:${distort[0]}/fl_layer_apply,g_north_west,x_0,y_0/${path}/e_distort:${distort[1]}/fl_layer_apply,g_north_west/cld-sample.jpg`;
                 console.log(`image: ${image}`);
                 yield send_message({ content: `here ya go`, media_url: image, number: message.number });
                 send_message({ content: `how many of each frame do you want?`, number: message.number });
             }
-            setTimeout(() => __awaiter(this, void 0, void 0, function* () {
-            }), 10000);
             console.log(`${Date.now() - t0}ms - cloudinary_edit`);
         }
         catch (error) {

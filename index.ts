@@ -11,6 +11,7 @@ import { Coda } from 'coda-js'
 import os from 'os'
 import { isTooManyTries, retryAsync } from 'ts-retry'
 import cron from 'cron'
+import { Prisma, PrismaClient } from '@prisma/client'
 
 import '@shopify/shopify-api/adapters/node';
 import { shopifyApi, LATEST_API_VERSION, Session } from "@shopify/shopify-api"
@@ -54,6 +55,12 @@ let send_style_options = new Set(["celebration", "shooting_star", "fireworks", "
 // ========================================================================================
 // ========================================DATABASE========================================
 // ========================================================================================
+// PostgreSQL db
+// let clientConfig: ClientConfig  // need to pass ssl: true for external access
+// process.env.PGHOST!.includes('render') ? clientConfig = { user: process.env.PGUSER, host: process.env.PGHOST, database: process.env.PGDATABASE, password: process.env.PGPASSWORD, port: Number(process.env.PGPORT), ssl: true } : clientConfig = { user: process.env.PGUSER, host: process.env.PGHOST, database: process.env.PGDATABASE, password: process.env.PGPASSWORD, port: Number(process.env.PGPORT) }
+// const client = new Client(clientConfig)
+// const prisma = new PrismaClient()
+// client.connect()
 
 // * CUSTOMER
 interface Customer {
@@ -105,9 +112,6 @@ app.post('/message', (req: express.Request, res: express.Response) => {
     const t0 = Date.now()
     const message: Message = { content: req.body.content, media_url: req.body.media_url, number: req.body.number, was_downgraded: req.body.was_downgraded, is_outbound: false, date: req.body.date_sent }
     res.status(200).end()
-    send_message({content: `we're temporarily down as we implement AI and improved responses. we'll be back ASAP and let you know when we're back up. thanks for your patience!`, number: message.number })
-    send_message({content: `message: ${message.number}`, number: '+13104974985' })
-    return
 
     analyze_message(message)
 
@@ -127,24 +131,13 @@ app.post('/message-status', (req: express.Request, res: express.Response) => {
 // ========================================TESTING=======================================
 // ======================================================================================
 
-let abe = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Abraham_Lincoln_O-77_matte_collodion_print.jpg'
-let sample_photo = 'https://storage.googleapis.com/inbound-file-store/47yEEPvo_61175D25-640A-4EA4-A3A1-608BBBBD76DDIMG_2914.heic'
+const abe = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Abraham_Lincoln_O-77_matte_collodion_print.jpg', sample_photo = 'https://storage.googleapis.com/inbound-file-store/47yEEPvo_61175D25-640A-4EA4-A3A1-608BBBBD76DDIMG_2914.heic'
 
-let test_message: Message = {
-  content: 'test_message',
-  media_url: sample_photo,
-  // media_url: abe,
-  number: '+13104974985', date: new Date()
-}
+let test_message: Message = { content: 'test_message', number: '+13104974985', date: new Date(), media_url: sample_photo, }
 
-test()
-async function test() {
-  // console.log(await layer_image(test_message))
-  console.log(await cloudinary_edit(test_message))
-}
+// test()
+async function test() { console.log(await cloudinary_edit(test_message)) }
 
-// Shopify product info
-let Sunday_products: number[]
 // product_update()
 /* async function product_update() {
   const startTime = Date.now()
@@ -190,17 +183,14 @@ async function analyze_message(message: Message) {
   }
   console.log('existing user')
 
-  if (message.media_url) {
-    console.log('media message')
-    const layered_image = await cloudinary_edit(message)
-  }
+  if (message.media_url) { await cloudinary_edit(message) }
   if (!message.content) { return }
 
   const categorize = async () => {
     try {
       const category = await openai.createCompletion({
         model: 'text-davinci-003',
-        prompt: `Categorize the following text into one of the following: ["help", "order quantity"]\nText: ${message.content}\nCategory:`
+        prompt: `Categorize the following text into one of the following: ["help", "order quantity"]. Example:\nText: I'll take 2 white frames and three black\nCategory: "order quantity"\nText: how does this work and how much do the frames cost?\nCategory: "help"\n\nText: how many frames can I get?\nCategory: "help"\n###\nText: ${message.content}\nCategory:`
       })
       return category.data.choices[0].text?.toLowerCase()
     } catch (e) { return null }
@@ -208,7 +198,7 @@ async function analyze_message(message: Message) {
 
   const category = await categorize()
   console.log(`category_lc: ${category}`)
-  if (!category || (!category.includes('order') && !category.includes('order'))) {
+  if (!category || (!category.includes('order') && !category.includes('help'))) {
     error_alert(` ! miscategorization (${message.number}): '${message.content}'\ncategory: ${category}`, message)
     await send_message({ content: `¿yo no comprendo 🤷‍♂️? Somebody will reach out shortly`, number: message.number })
     return
@@ -231,13 +221,13 @@ async function analyze_message(message: Message) {
     })
     // remove blank space from response, split into array
     const quantities = openAIResponse.data.choices[0].text?.toString().replace(/[^0-9,]/g, '').split(',')
-    
+
     // TODO: check if quantities are valid
     await send_message({ content: `nice choice. i’ll get this shipped out ASAP. click the link to checkout: https://textframedaddy.com/cart/43286555033836:${quantities![0]},43480829198572:${quantities![1]}`, number: message.number })
   } else if (category.includes('help')) {
     let openAIResponse = await openai.createCompletion({
       model: 'text-davinci-003', max_tokens: 128,
-      prompt: `You are a superintelligent customer support chatbot. Guide the customer along and answer any questions. You operate over text message so keep responses brief and casual. The following is a description of our product/service\n - users text a photo (portrait or landscape) they want framed to get started\n - photos are printed 5"x7" in black or white frames for $24.99\n - Adam and Alex lovingly handframe, package, and ship your photo from New York\n - frames have a wall-hook and easel-back to hang or stand up\n - if you prefer, or are having troubles with the texting service, you can upload your photo to textframedaddy.com\nIf you cannot help the customer or they want to speak to a representative, put "SUPPORT" as the response.\nThe customer has sent the following message:\n
+      prompt: `You are a superintelligent customer support chatbot. Guide the customer along and answer any questions. You operate over text message so keep responses brief and casual. Answer their questions specifically, do not provide too much extraneious information. The following is a description of our product/service\n - users text a photo (portrait or landscape) they want framed to get started\n - photos are printed 5"x7" in black or white frames for $24.99\n - Adam and Alex lovingly handframe, package, and ship your photo from New York\n - frames have a wall-hook and easel-back to hang or stand up\n - if you prefer, or are having troubles with the texting service, you can upload your photo to textframedaddy.com\nIf you cannot help the customer or they want to speak to a representative, put "SUPPORT" as the response.\nThe customer has sent the following message:\n
       Text: ${message.content}\nResponse:`
     })
     await send_message({ content: openAIResponse.data.choices[0].text, number: message.number! })
@@ -246,7 +236,6 @@ async function analyze_message(message: Message) {
 
 async function cloudinary_edit(message: Message, entryID?: string) {
   const t0 = Date.now()
-  console.log(` ! cloudinary_edit called`)
   let public_id = `${message.number.substring(1)}_${message.date?.toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/[:,]/g, '').replace(/[/\s]/g, '-')}`
   console.log(public_id)
   try {
@@ -256,26 +245,25 @@ async function cloudinary_edit(message: Message, entryID?: string) {
     })
 
     // ratio<1=normal, orientation<4 = landscape (1=left, 3=right), >4=portrait (6=up, 8=down)
-    let orientation = data.exif.Orientation, width = data.width, height = data.height, ratio = data.width / data.height, image: string, path = `u_v${data.version}:${data.public_id.replace(/\//g, ':')}.${data.format}`
+    let orientation = data.exif.Orientation, width = data.width, height = data.height, ratio = data.width / data.height, path = `u_v${data.version}:${data.public_id.replace(/\//g, ':')}.${data.format}`
     console.log(`path: ${path}`)
-    
+
     // return
 
     if ((ratio > 0.77 || ratio < 0.66) && (1 / ratio > 0.77 || 1 / ratio < .66)) {
       await send_message({ content: `looks like your photo's the wrong aspect ratio, follow the picture below (5:7 or 7:5 ratio) and send again`, number: message.number, media_url: 'http://message.textframedaddy.com/assets/aspect_ratio_tutorial.png' })
     } else {
+      let setup, distort  // distort [left, right]
       if ((ratio < 1 && orientation > 4) || (ratio > 1 && orientation < 4)) {  // vertical
-        image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/l_v1677563168:FrameDaddy:assets:double_vertical.png/fl_layer_apply,g_north_west/${path}/e_distort:362:680:1169:680:1162:1283:361:1285/fl_layer_apply,g_north_west,x_0,y_0/${path}/e_distort:2451:658:3300:649:3301:1274:2452:1277/fl_layer_apply,g_north_west/cld-sample.jpg`
+        setup = 'vertical', distort = ['1216:2054:2158:2138:2052:3482:1055:3316', '2957:2125:3881:2021:4119:3310:3158:3484']
       } else {  // horizontal ((ratio < 1 && orientation < 4) || (ratio > 1 && orientation > 4))
-        image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/l_v1677563168:FrameDaddy:assets:double_horizontal.png/fl_layer_apply,g_north_west/${path}/e_distort:1216:2054:2158:2138:2052:3482:1055:3316/fl_layer_apply,g_north_west,x_0,y_0/${path}/e_distort:2957:2125:3881:2021:4119:3310:3158:3484/fl_layer_apply,g_north_west/cld-sample.jpg`
+        setup = 'horizontal', distort = ['362:680:1169:680:1162:1283:361:1285', '2451:658:3300:649:3301:1274:2452:1277']
       }
+      const image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/l_v1677563168:FrameDaddy:assets:double_${setup}.png/fl_layer_apply,g_north_west/${path}/e_distort:${distort[0]}/fl_layer_apply,g_north_west,x_0,y_0/${path}/e_distort:${distort[1]}/fl_layer_apply,g_north_west/cld-sample.jpg`
       console.log(`image: ${image}`)
       await send_message({ content: `here ya go`, media_url: image, number: message.number })
       send_message({ content: `how many of each frame do you want?`, number: message.number! })
     }
-    setTimeout(async () => {
-
-    }, 10000)
     console.log(`${Date.now() - t0}ms - cloudinary_edit`)
   } catch (error) { error_alert(error) }
 }
