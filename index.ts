@@ -131,9 +131,9 @@ app.post('/message-status', (req: express.Request, res: express.Response) => {
 // ========================================TESTING=======================================
 // ======================================================================================
 
-const abe = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Abraham_Lincoln_O-77_matte_collodion_print.jpg', sample_photo = 'https://storage.googleapis.com/inbound-file-store/47yEEPvo_61175D25-640A-4EA4-A3A1-608BBBBD76DDIMG_2914.heic'
+const abe = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Abraham_Lincoln_O-77_matte_collodion_print.jpg', sample_vertical = 'https://storage.googleapis.com/inbound-file-store/47yEEPvo_61175D25-640A-4EA4-A3A1-608BBBBD76DDIMG_2914.heic', sample_horizontal = ''
 
-let test_message: Message = { content: 'test_message', number: '+13104974985', date: new Date(), media_url: sample_photo, }
+let test_message: Message = { content: 'test_message', number: '+13104974985', date: new Date(), media_url: sample_vertical, }
 
 // test()
 async function test() { console.log(await cloudinary_edit(test_message)) }
@@ -225,9 +225,10 @@ async function analyze_message(message: Message) {
     // TODO: check if quantities are valid
     await send_message({ content: `nice choice. i’ll get this shipped out ASAP. click the link to checkout: https://textframedaddy.com/cart/43286555033836:${quantities![0]},43480829198572:${quantities![1]}`, number: message.number })
   } else if (category.includes('help')) {
+    // TODO add message context
     let openAIResponse = await openai.createCompletion({
       model: 'text-davinci-003', max_tokens: 128,
-      prompt: `You are a superintelligent customer support chatbot. Guide the customer along and answer any questions. You operate over text message so keep responses brief and casual. Answer their questions specifically, do not provide too much extraneious information. The following is a description of our product/service\n - users text a photo (portrait or landscape) they want framed to get started\n - photos are printed 5"x7" in black or white frames for $24.99\n - Adam and Alex lovingly handframe, package, and ship your photo from New York\n - frames have a wall-hook and easel-back to hang or stand up\n - if you prefer, or are having troubles with the texting service, you can upload your photo to textframedaddy.com\nIf you cannot help the customer or they want to speak to a representative, put "SUPPORT" as the response.\nThe customer has sent the following message:\n
+      prompt: `You are a superintelligent customer support chatbot. Guide the customer along and answer any questions. You operate over text message so keep responses brief and casual. Answer their questions specifically, do not provide too much extraneious information. The following is a description of our product/service\n - users text a photo (portrait or landscape) they want framed to get started\n- photos are printed 5"x7" in black or white frames for $24.99\n- Adam and Alex lovingly handframe, package, and ship your photo from New York\n- frames have a wall-hook and easel-back to hang or stand up \n- if you prefer, or are having troubles with the texting service, you can upload your photo to textframedaddy.com\nIf you cannot help the customer or they want to speak to a representative, put "SUPPORT" as the response.\nThe customer has sent the following message:\n
       Text: ${message.content}\nResponse:`
     })
     await send_message({ content: openAIResponse.data.choices[0].text, number: message.number! })
@@ -248,18 +249,23 @@ async function cloudinary_edit(message: Message, entryID?: string) {
     let orientation = data.exif.Orientation, width = data.width, height = data.height, ratio = data.width / data.height, path = `u_v${data.version}:${data.public_id.replace(/\//g, ':')}.${data.format}`
     console.log(`path: ${path}`)
 
-    // return
+    console.log(ratio, orientation)
 
-    if ((ratio > 0.77 || ratio < 0.66) && (1 / ratio > 0.77 || 1 / ratio < .66)) {
+    /* 
+    organic horizontal: ratio = 1.33, orientation = 1/3
+    vertical rotated: ratio = 1.33, orientation = 1/3
+    organic vertical: ratio = 0.75, orientation = 6/8
+    */
+
+    if ((0.77 < ratio || ratio < 0.66) && (0.77 < 1 / ratio || 1 / ratio < .66)) {
       await send_message({ content: `looks like your photo's the wrong aspect ratio, follow the picture below (5:7 or 7:5 ratio) and send again`, number: message.number, media_url: 'http://message.textframedaddy.com/assets/aspect_ratio_tutorial.png' })
     } else {
-      let setup, distort  // distort [left, right]
-      if ((ratio < 1 && orientation > 4) || (ratio > 1 && orientation < 4)) {  // vertical
-        setup = 'vertical', distort = ['1216:2054:2158:2138:2052:3482:1055:3316', '2957:2125:3881:2021:4119:3310:3158:3484']
-      } else {  // horizontal ((ratio < 1 && orientation < 4) || (ratio > 1 && orientation > 4))
-        setup = 'horizontal', distort = ['362:680:1169:680:1162:1283:361:1285', '2451:658:3300:649:3301:1274:2452:1277']
-      }
-      const image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/l_v1677563168:FrameDaddy:assets:double_${setup}.png/fl_layer_apply,g_north_west/${path}/e_distort:${distort[0]}/fl_layer_apply,g_north_west,x_0,y_0/${path}/e_distort:${distort[1]}/fl_layer_apply,g_north_west/cld-sample.jpg`
+      let setup, distort  // distort = [left, right]
+      if (ratio < 1) { setup = 'vertical', distort = ['1216:2054:2158:2138:2052:3482:1055:3316', '2957:2125:3881:2021:4119:3310:3158:3484'] }
+      else { setup = 'horizontal', distort = ['285:534:918:534:913:1008:284:1010', '1926:517:2592:510:2593:1001:1927:1004'] }
+
+      const quality = 60
+      const image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/q_${quality}/${path}/e_distort:${distort[0]}/fl_layer_apply,g_north_west,x_0,y_0/${path}/e_distort:${distort[1]}/fl_layer_apply,g_north_west/FrameDaddy/assets/double_${setup}.jpg`
       console.log(`image: ${image}`)
       await send_message({ content: `here ya go`, media_url: image, number: message.number })
       send_message({ content: `how many of each frame do you want?`, number: message.number! })
