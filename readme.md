@@ -25,3 +25,7 @@ image size: [StackOverflow](https://stackoverflow.com/questions/48889903/get-ima
 
 * [docs](https://coda.io/developers/apis/v1)
 * [coda-js](https://www.npmjs.com/package/coda-js)
+
+### Sendblue
+
+sendstyle: "celebration", "shooting_star", "fireworks", "lasers", "love", "confetti", "balloons", "spotlight", "echo", "invisible", "gentle", "loud", "slam"

@@ -12,6 +12,7 @@ import os from 'os'
 import { isTooManyTries, retryAsync } from 'ts-retry'
 import cron from 'cron'
 import { Prisma, PrismaClient } from '@prisma/client'
+import { Client, ClientConfig } from 'pg'
 
 import '@shopify/shopify-api/adapters/node';
 import { shopifyApi, LATEST_API_VERSION, Session } from "@shopify/shopify-api"
@@ -46,21 +47,18 @@ cloudinary.config({ cloud_name: 'dpxdjc7qy', api_key: process.env.CLOUDINARY_API
 // ========================================VARIABLES=======================================
 // ========================================================================================
 
-// TODO: setup group message
-const admin_numbers = ['+13104974985', '+19165919394', '+19498702865']    // Ian, Adam, Corn
+const admin_numbers = ['+13104974985', '+19165919394', '+19498702865', '+16143019108', '+17324035224']    // Ian, Adam, Corn, Lubin, Boser
 const coda_doc = 'Wkshedo2Sb', coda_table = 'grid-_v0sM6s7e1'
-// const Coda_messages_table = coda.getTable(coda_doc, coda_table)
-let send_style_options = new Set(["celebration", "shooting_star", "fireworks", "lasers", "love", "confetti", "balloons", "spotlight", "echo", "invisible", "gentle", "loud", "slam"])
+// const Coda_messages_table = coda.getTable(coda_doc, coda_table))
 
 // ========================================================================================
 // ========================================DATABASE========================================
 // ========================================================================================
 // PostgreSQL db
-// let clientConfig: ClientConfig  // need to pass ssl: true for external access
-// process.env.PGHOST!.includes('render') ? clientConfig = { user: process.env.PGUSER, host: process.env.PGHOST, database: process.env.PGDATABASE, password: process.env.PGPASSWORD, port: Number(process.env.PGPORT), ssl: true } : clientConfig = { user: process.env.PGUSER, host: process.env.PGHOST, database: process.env.PGDATABASE, password: process.env.PGPASSWORD, port: Number(process.env.PGPORT) }
-// const client = new Client(clientConfig)
-// const prisma = new PrismaClient()
-// client.connect()
+let clientConfig: ClientConfig  // need to pass ssl: true for external access
+process.env.PGHOST!.includes('render') ? clientConfig = { user: process.env.PGUSER, host: process.env.PGHOST, database: process.env.PGDATABASE, password: process.env.PGPASSWORD, port: Number(process.env.PGPORT), ssl: true } : clientConfig = { user: process.env.PGUSER, host: process.env.PGHOST, database: process.env.PGDATABASE, password: process.env.PGPASSWORD, port: Number(process.env.PGPORT) }
+const client = new Client(clientConfig), prisma = new PrismaClient()
+client.connect()
 
 // * CUSTOMER
 interface Customer {
@@ -96,7 +94,7 @@ app.post('/fdorder', async (req: express.Request, res: express.Response) => {
     const customer: Customer = { name: req.body.customer.first_name, email: req.body.customer.email, phone: e164(req.body.shipping_address.phone).phoneNumber!, order_number: req.body.order_number }
     res.status(200).end()
 
-    await send_message({ content: `you've been framed 😎 here's your order status (#${req.body.order_number}) ${req.body.order_status_url}`, number: customer.phone })
+    await send_message({ content: `you've been framed 😎 here's your order status (#${req.body.order_number}) ${req.body.order_status_url}`, send_style: "confetti", number: customer.phone })
     await send_message({ content: "don’t forget to save my contact card for easy ordering", number: customer.phone })
 
     console.log(`${Date.now() - t0}ms - /fdorder`)
@@ -167,7 +165,7 @@ async function local_data() {
 
 const job = new cron.CronJob('0 0 */1 * *', async () => {
   local_data()
-  await send_message({ content: `FrameDaddy CRON run`, number: '+13104974985' })
+  // await send_message({ content: `FrameDaddy CRON run`, number: '+13104974985' })
 })
 job.start()
 
@@ -176,12 +174,17 @@ async function analyze_message(message: Message) {
   add_row(message)
   if (!users.includes(message.number!)) {  // check for new user
     console.log('new user')
-    await send_message({ content: `hey I'm TextFrameDaddy.com! the easiest way to put a 5x7 photo in a frame. this is an AI chatbot so feel free to speak naturally. my capabilities are limited now but I'm always adding more! add my contact below`, number: message.number!, media_url: 'http://message.textframedaddy.com/assets/FrameDaddy.vcf' })
+    await send_message({ content: `Hey I'm TextFrameDaddy.com, the easiest way to put a 5x7 photo in a frame. I'm powered by ChatGPT so feel free to speak naturally! Add my contact below`, send_style: 'lasers', number: message.number!, media_url: 'http://message.textframedaddy.com/assets/FrameDaddy.vcf' })
     await send_message({ content: 'send a photo to get started!', number: message.number! })
     users.push(message.number!)
     return
   }
   console.log('existing user')
+
+  if (message.content?.toLowerCase().startsWith('support')) {
+    send_message({ content: `Connecting you with a human, sorry for the trouble.`, number: message.number! })
+    await send_message({ content: `SUPPORT (${message.number}\n${message.content}`, number: '+13104974985' })
+  }
 
   if (message.media_url) { await cloudinary_edit(message) }
   if (!message.content) { return }
@@ -205,7 +208,7 @@ async function analyze_message(message: Message) {
   }
 
   // TODO implement retry feature if response isn't one of two?
-  /* try {
+  /*  try {
     await retryAsync( async () => {
   
       }, { delay: 100, maxTry: 3, } )
@@ -217,19 +220,19 @@ async function analyze_message(message: Message) {
   if (category.includes('order')) {
     let openAIResponse = await openai.createCompletion({
       model: 'text-davinci-003',
-      prompt: `Extract the quantity of "black" and "white" desired from the text below. Return the quantities in the following format: <black quantities>,<white quantities>\nText: ${message.content}\nValues:`
+      prompt: `A customer is ordering one or more framed photo. Extract the quantity of black and white frames desired from their message. Return the quantities in the following format: <black quantities>,<white quantities>.\nExamples:\nText: I'll take both\nValues: 1,1\n###\nMessage: ${message.content}\nValues:`
     })
     // remove blank space from response, split into array
     const quantities = openAIResponse.data.choices[0].text?.toString().replace(/[^0-9,]/g, '').split(',')
 
     // TODO: check if quantities are valid
-    await send_message({ content: `nice choice. i’ll get this shipped out ASAP. click the link to checkout: https://textframedaddy.com/cart/43286555033836:${quantities![0]},43480829198572:${quantities![1]}`, number: message.number })
+    await send_message({ content: `Nice choice, I’ll get this shipped out ASAP. Click the link to checkout: https://textframedaddy.com/cart/43286555033836:${quantities![0]},43480829198572:${quantities![1]}`, number: message.number })
   } else if (category.includes('help')) {
     // TODO add message context
     let openAIResponse = await openai.createCompletion({
-      model: 'text-davinci-003', max_tokens: 128,
-      prompt: `You are a superintelligent customer support chatbot. Guide the customer along and answer any questions. You operate over text message so keep responses brief and casual. Answer their questions specifically, do not provide too much extraneious information. The following is a description of our product/service\n - users text a photo (portrait or landscape) they want framed to get started\n- photos are printed 5"x7" in black or white frames for $24.99\n- Adam and Alex lovingly handframe, package, and ship your photo from New York\n- frames have a wall-hook and easel-back to hang or stand up \n- if you prefer, or are having troubles with the texting service, you can upload your photo to textframedaddy.com\nIf you cannot help the customer or they want to speak to a representative, put "SUPPORT" as the response.\nThe customer has sent the following message:\n
-      Text: ${message.content}\nResponse:`
+      model: 'text-davinci-003', max_tokens: 256,
+      prompt: `You are a superintelligent customer support chatbot. Guide the customer along and answer any questions. You operate over text message so keep responses brief and casual. Answer questions specifically, without extraneious information. Speak casually. If you cannot help the customer or they want to speak to a representative, put "SUPPORT" as the Response. Use the following information and description of our service to aid users:\n- how does it work? users text a photo (portrait or landscape) they want framed to get started\n- what are the details? the photos are 5"x7" and only come in black or white frames for $19.99\n- Adam and Alex lovingly handframe, package, and ship your photo from New York\n- frames have a wall-hook and easel-back to hang or stand up\n- our website is textframedaddy.com. if you prefer, or are having troubles with the texting service, you can upload your photo there\n- FrameDaddy's number is  (650) 537-0786\n- if you want to talk to a representative, start your text with "support"\nThe ONLY link you should send is textframedaddy.com\nThe customer has sent the following message:\n
+      Message: ${message.content}\nResponse:`
     })
     await send_message({ content: openAIResponse.data.choices[0].text, number: message.number! })
   }
