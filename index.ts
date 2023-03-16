@@ -121,7 +121,7 @@ async function analyze_message(message: Message) {
     let message_response: Message = { ...message_default, number: message.number }
     // intro message
     if (!users.includes(message.number) || (admin_numbers.includes(message.number) && message.content?.toLowerCase() == 'first')) {
-      const user = await prisma.user.create({ data: { name: null, email: null, order: null, number: message.number } })
+      const user = await prisma.user.upsert({ where: { number: message.number }, update: { }, create: { number: message.number } })
       users.push(message.number)
 
       await send_message({ ...message_response, content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by ChatGPT so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: 'intro' })

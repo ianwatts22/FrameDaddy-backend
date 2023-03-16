@@ -142,7 +142,7 @@ function analyze_message(message) {
             let message_response = Object.assign(Object.assign({}, message_default), { number: message.number });
             // intro message
             if (!users.includes(message.number) || (admin_numbers.includes(message.number) && ((_a = message.content) === null || _a === void 0 ? void 0 : _a.toLowerCase()) == 'first')) {
-                const user = yield prisma.user.create({ data: { name: null, email: null, order: null, number: message.number } });
+                const user = yield prisma.user.upsert({ where: { number: message.number }, update: {}, create: { number: message.number } });
                 users.push(message.number);
                 yield send_message(Object.assign(Object.assign({}, message_response), { content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by ChatGPT so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: 'intro' }));
                 message.media_url ? yield layer_image(message, user) : yield send_message(Object.assign(Object.assign({}, message_response), { content: 'Send a photo to get started!' }));
