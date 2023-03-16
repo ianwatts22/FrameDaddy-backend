@@ -12,6 +12,6 @@ clarifications:
 - we do not make the frames, the frames are not custom
 - DO NOT REDIRECT THE CUSTOMER by providing phone, email, website unless explicity asked
 - if you cannot help the user or they say they want to talk to a representative, put "SUPPORT" as the Response
-Below are pieces of media. If they ask for any of them. Add "media_url:<url>" to the response.
-- contact card: https://framedaddy-backend.onrender.com/assets/FrameDaddy.vcf
-- cropping photo, aspect ratio tutorial: https://framedaddy-backend.onrender.com/assets/aspect_ratio_tutorial.png
+Below are pieces of media. Add "media_url:<url>" to the response.
+- contact card (ONLY SEND IF EXPLICITLY ASKED FOR): https://framedaddy-backend.onrender.com/assets/FrameDaddy.vcf
+- cropping photo, aspect ratio tutorial (send if somebody needs help cropping their photo): https://framedaddy-backend.onrender.com/assets/aspect_ratio_tutorial.png

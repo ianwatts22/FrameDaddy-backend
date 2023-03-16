@@ -171,7 +171,7 @@ async function analyze_message(message: Message) {
     // cateogrization error
     if (!category || !categories.includes(category)) {
       error_alert(` ! miscategorization (${message.number}): '${message.content}'\ncategory: ${category}`, message)
-      await send_message({ ...message_response, content: `Sorry bugged out. Try again, your message has been sent to support to fix the bug.` })
+      await send_message({ ...message_response, content: `Sorry bugged out. Try again, your message has been sent to support to fix the bug. Start framing by texting a photo!` })
       return
     }
 

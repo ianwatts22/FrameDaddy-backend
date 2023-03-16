@@ -192,7 +192,7 @@ function analyze_message(message) {
             // cateogrization error
             if (!category || !categories.includes(category)) {
                 error_alert(` ! miscategorization (${message.number}): '${message.content}'\ncategory: ${category}`, message);
-                yield send_message(Object.assign(Object.assign({}, message_response), { content: `Sorry bugged out. Try again, your message has been sent to support to fix the bug.` }));
+                yield send_message(Object.assign(Object.assign({}, message_response), { content: `Sorry bugged out. Try again, your message has been sent to support to fix the bug. Start framing by texting a photo!` }));
                 return;
             }
             /* let openAIResponse: any = await openai.createCompletion({
