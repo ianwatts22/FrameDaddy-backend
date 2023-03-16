@@ -299,7 +299,7 @@ async function layer_image(message: Message, user: User) {
 
       await send_message({ ...message_response, media_url: image })
       send_message({ ...message_response, content: `How many of each color frame do you want?` })
-      if (user.order == '') send_message({ ...message_response, content: `If you want more photos framed keep em coming, otherwise let me know when you want to checkout` })
+      // if (user.order == '') send_message({ ...message_response, content: `If you want more photos framed keep em coming, otherwise let me know when you want to checkout` })
 
       const image_mod = await cloudinary.image(public_id, { gravity: "auto", aspect_ratio: ar, crop: "fill" })
       console.log(`image_mod: ${image_mod}`)
