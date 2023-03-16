@@ -187,7 +187,7 @@ function analyze_message(message) {
       Text: ${message.content}
       Category:`
             });
-            const category = (_c = categorize.data.choices[0].text) === null || _c === void 0 ? void 0 : _c.replace(/\s+/g, "");
+            const category = (_c = categorize.data.choices[0].text) === null || _c === void 0 ? void 0 : _c.toLowerCase().replace(/\s+/g, "");
             console.log(`${Date.now() - t0}ms - /analyze_message - categorize (${category})`);
             // cateogrization error
             if (!category || !categories.includes(category)) {

@@ -164,7 +164,7 @@ async function analyze_message(message: Message) {
       Text: ${message.content}
       Category:`
     })
-    const category = categorize.data.choices[0].text?.replace(/\s+/g, "")
+    const category = categorize.data.choices[0].text?.toLowerCase().replace(/\s+/g, "")
 
     console.log(`${Date.now() - t0}ms - /analyze_message - categorize (${category})`)
 
