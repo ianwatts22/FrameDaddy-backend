@@ -4,29 +4,31 @@
 
 ## ChatGPT description
 
-Project: chatbot that you can text to order framed photos. Somebody texts the phone number which initiates the conversation. They send the image they want framed, which is then cropped and layered with a photo to show what it would look like framed. They are then asked how many they want and sent a Shopify checkout link accordingly. There are a few other commands like "help" and "cancel" that are also supported.
-Technology: Node.js app using Express and Axios, Sendblue API for texting, Coda for database, Shopify for purchasing, Dynapictures for photo layering.
+Project: AI chatbot you can text to order framed photos. The first ever text initiates a conversation, which introduces itself and sends directions. They send the image they want framed, which is cropped and layered with a photo to show what it would look like framed. They are then asked how many they want and sent a Shopify checkout link accordingly. There are a few other commands like "help" and "cancel" that are also supported.
+Technology: Node.js app using Express and Axios, Sendblue API for texting, Coda for database, Shopify for purchasing, Cloudinary for photo store, layering, and editing.
 
 ## tools
 
 [Dynapictures](https://dynapictures.com/docs/#introduction)
 
-### image metadata
+EXIF
 
-[Mallabe RapidAPI](https://rapidapi.com/mallabe1/api/mallabe): check how fast it's taking
-[getting image metadata using Node.js](https://techsparx.com/nodejs/graphics/image-metadata.html)
-[nodejs read image data](https://stackoverflow.com/questions/11357239/nodejs-read-image-data)
-[node-exif](https://github.com/gomfunkel/node-exif)
-image size: [StackOverflow](https://stackoverflow.com/questions/48889903/get-image-dimensions-in-zapier-with-javascript)
+- ratio<1=normal, orientation<4 = landscape (1=left, 3=right), >4=portrait (6=up, 8=down)
+- reg horz: rat = 1.33, ornt = 1/3 | rotated vert: rat = 1.33, ornt = 1/3 reg vert: rat = 0.75, ornt = 6/8
 
-* [image orientation](https://eorvain-app.medium.com/image-orientation-on-ios-abaf8321820b)
+## Cloudinary
+
+[transformations on upload](https://console.cloudinary.com/documentation/transformations_on_upload#incoming_transformations)
+[Media Upload](https://console.cloudinary.com/settings/c-a626d863a6b6cac846592d54297f3b/upload_presets/4f9bfd573e14398d2b96b897b10815c6/edit?page=upload)
+[collage](https://cloudinary.com/documentation/image_collage_generation)
+[Postman for collage](https://www.postman.com/cloudinaryteam/workspace/programmable-media/folder/16080251-0dbbd35d-7dfa-4056-8796-7bcdb59eb785?ctx=documentation)
 
 ### internal interface
 
 [Coda API](https://coda.io/@oleg/getting-started-guide-coda-api/start-here-5)
 
-* [docs](https://coda.io/developers/apis/v1)
-* [coda-js](https://www.npmjs.com/package/coda-js)
+- [docs](https://coda.io/developers/apis/v1)
+- [coda-js](https://www.npmjs.com/package/coda-js)
 
 ### Sendblue
 

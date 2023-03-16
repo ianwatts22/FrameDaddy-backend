@@ -13,70 +13,104 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 require('dotenv').config();
-const sendblue_1 = __importDefault(require("sendblue"));
 const express_1 = __importDefault(require("express"));
 const morgan_1 = __importDefault(require("morgan"));
 const body_parser_1 = __importDefault(require("body-parser"));
-const cloudinary_1 = require("cloudinary");
 const phone_1 = __importDefault(require("phone"));
+const os_1 = __importDefault(require("os"));
+const fs_1 = __importDefault(require("fs"));
+const cron_1 = __importDefault(require("cron"));
+const sendblue_1 = __importDefault(require("sendblue"));
+const cloudinary_1 = require("cloudinary");
 const openai_1 = require("openai");
 const coda_js_1 = require("coda-js");
-const os_1 = __importDefault(require("os"));
-const cron_1 = __importDefault(require("cron"));
-const client_1 = require("@prisma/client");
 const pg_1 = require("pg");
+const client_1 = require("@prisma/client");
 require("@shopify/shopify-api/adapters/node");
-const app = (0, express_1.default)();
 let hostname, link;
 if (os_1.default.hostname().split('.').pop() === 'local')
     hostname = '127.0.0.1', link = process.env.NGROK;
 else
     hostname = '0.0.0.0', link = 'https://framedaddy-backend.onrender.com';
-const PORT = Number(process.env.PORT);
+const PORT = Number(process.env.PORT), app = (0, express_1.default)();
+app.use(express_1.default.static('public')), app.use(express_1.default.urlencoded({ extended: true })), app.use(body_parser_1.default.json()), app.use((0, morgan_1.default)('dev')), app.use('/assets', express_1.default.static('assets'));
 app.listen(PORT, hostname, () => { console.log(`server at - http://${hostname}:${PORT}/`); });
-app.use(express_1.default.static('public'));
-app.use(express_1.default.urlencoded({ extended: true }));
-app.use(body_parser_1.default.json());
-app.use((0, morgan_1.default)('dev'));
-const sendblue = new sendblue_1.default(process.env.SENDBLUE_API_KEY, process.env.SENDBLUE_API_SECRET), coda = new coda_js_1.Coda(process.env.CODA_API_KEY), configuration = new openai_1.Configuration({ organization: process.env.OPENAI_ORGANIZATION, apiKey: process.env.OPENAI_API_KEY }), openai = new openai_1.OpenAIApi(configuration);
+const sendblue = new sendblue_1.default(process.env.SENDBLUE_API_KEY, process.env.SENDBLUE_API_SECRET);
+const coda = new coda_js_1.Coda(process.env.CODA_API_KEY);
+const configuration = new openai_1.Configuration({ organization: process.env.OPENAI_ORGANIZATION, apiKey: process.env.OPENAI_API_KEY });
+const openai = new openai_1.OpenAIApi(configuration);
 cloudinary_1.v2.config({ cloud_name: 'dpxdjc7qy', api_key: process.env.CLOUDINARY_API_KEY, api_secret: process.env.CLOUDINARY_API_SECRET, secure: true });
-// ========================================================================================
-// ========================================VARIABLES=======================================
-// ========================================================================================
-const admin_numbers = ['+13104974985', '+19165919394', '+19498702865', '+16143019108', '+17324035224']; // Ian, Adam, Corn, Lubin, Boser
-// ========================================================================================
-// ========================================DATABASE========================================
-// ========================================================================================
-// PostgreSQL db
 let clientConfig; // need to pass ssl: true for external access
 process.env.PGHOST.includes('render') ? clientConfig = { user: process.env.PGUSER, host: process.env.PGHOST, database: process.env.PGDATABASE, password: process.env.PGPASSWORD, port: Number(process.env.PGPORT), ssl: true } : clientConfig = { user: process.env.PGUSER, host: process.env.PGHOST, database: process.env.PGDATABASE, password: process.env.PGPASSWORD, port: Number(process.env.PGPORT) };
 const client = new pg_1.Client(clientConfig), prisma = new client_1.PrismaClient();
 client.connect();
+// ========================================================================================
+// ========================================VARIABLES=======================================
+// ========================================================================================
+var AdminNumbers;
+(function (AdminNumbers) {
+    AdminNumbers["Ian"] = "+13104974985";
+    AdminNumbers["Adam"] = "+19165919394";
+    AdminNumbers["Corn"] = "+19498702865";
+    AdminNumbers["Lubin"] = "+16143019108";
+    AdminNumbers["Boser"] = "+17324035224";
+})(AdminNumbers || (AdminNumbers = {}));
+const admin_numbers = Object.values(AdminNumbers);
+const message_default = { content: null, number: '', type: null, is_outbound: null, date: new Date(), was_downgraded: null, media_url: null, send_style: null, response_time: null };
+const coda_doc_key = 'Wkshedo2Sb', coda_messages_key = 'grid-_v0sM6s7e1', coda_users_key = 'grid-VBi-mmgrKi';
+let users;
+local_data();
+function local_data() {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const Coda_doc = yield coda.getDoc(coda_doc_key); // const Coda_tables = await Coda_doc.listTables()
+            const Coda_users_table = yield Coda_doc.getTable(coda_users_key);
+            const Coda_user_rows = yield Coda_users_table.listRows({ useColumnNames: true });
+            users = Coda_user_rows.map((row) => (row.values).phone);
+            const Coda_messages_table = yield Coda_doc.getTable(coda_messages_key);
+            const Coda_messages_rows = yield Coda_messages_table.listRows({ useColumnNames: true });
+            let messages = Coda_messages_rows.map((row) => (row.values).phone);
+            const columns = yield Coda_messages_table.listColumns(null);
+            // console.log(columns.map((column) => (column as { name: string }).name))
+            // =========Prisma=========
+            // users = await prisma.users.findMany().then(users => users.map(user => user.number))
+        }
+        catch (e) {
+            console.log(e);
+        }
+    });
+}
 // ======================================================================================
 // ========================================ROUTES========================================
 // ======================================================================================
 app.post('/fdorder', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const t0 = Date.now();
-        const customer = { name: req.body.customer.first_name, email: req.body.customer.email, phone: (0, phone_1.default)(req.body.shipping_address.phone).phoneNumber, order_number: req.body.order_number };
+        const user = { name: (req.body.customer.first_name + ' ' + req.body.customer.last_name), email: req.body.customer.email, number: (0, phone_1.default)(req.body.shipping_address.phone).phoneNumber, order: '' };
         res.status(200).end();
-        yield send_message({ content: `You've been framed 😎! Here's your order info (#${req.body.order_number}) ${req.body.order_status_url}`, send_style: 'confetti', number: customer.phone });
-        yield send_message({ content: "don’t forget to save my contact card for easy ordering", number: customer.phone });
-        console.log(`${Date.now() - t0}ms - /fdorder`);
+        let order = req.body.line_items.map((item) => { order += `${item.quantity}x ${item.name}\n`; });
+        let message_response = Object.assign(Object.assign({}, message_default), { type: 'order_placed', number: user.number });
+        yield send_message(Object.assign(Object.assign({}, message_response), { content: `You've been framed 😎! Here's your order info (#${req.body.order_number}) ${req.body.order_status_url}`, send_style: 'confetti' }));
+        yield send_message(Object.assign(Object.assign({}, message_response), { content: "Don’t forget to save my contact card for quick and easy ordering" }));
+        log_message(Object.assign(Object.assign({}, message_response), { content: `<order_placed:\n${order}>` }));
+        yield prisma.user.upsert({
+            where: { number: user.number },
+            update: { name: user.name, email: user.email, order: '' },
+            create: { name: user.name, email: user.email, order: '', number: user.number }
+        });
     }
     catch (e) {
         res.status(500).end();
         error_alert(e);
     }
 }));
+// TODO add this back, screen JSON for update==shipped?
 app.post('/fdshipped', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     // ? do we need this
 }));
 app.post('/message', (req, res) => {
     try {
-        const message = { content: req.body.content, media_url: req.body.media_url, number: req.body.number, was_downgraded: req.body.was_downgraded, is_outbound: false, date: req.body.date_sent };
+        analyze_message(Object.assign(Object.assign({}, message_default), { content: req.body.content, media_url: req.body.media_url, number: req.body.number, was_downgraded: req.body.was_downgraded, is_outbound: false, date: new Date(req.body.date_sent) }));
         res.status(200).end();
-        analyze_message(message);
     }
     catch (e) {
         res.status(500).end();
@@ -85,10 +119,8 @@ app.post('/message', (req, res) => {
 });
 app.post('/message-status', (req, res) => {
     try {
-        const t0 = Date.now();
         const message_status = req.body;
         res.status(200).end();
-        console.log(`${Date.now() - t0}ms - /message-status`);
     }
     catch (e) {
         res.status(500).end();
@@ -98,168 +130,265 @@ app.post('/message-status', (req, res) => {
 // ======================================================================================
 // ========================================FUNCTIONS=====================================
 // ======================================================================================
-let Coda_messages_table, Coda_doc, Coda_users_table, users;
-local_data();
-function local_data() {
+let help_prompt = fs_1.default.readFileSync('prompts/help_prompt.txt', 'utf8');
+const job = new cron_1.default.CronJob('0 0 */1 * *', () => __awaiter(void 0, void 0, void 0, function* () { local_data(); }));
+job.start();
+const contact_card = `${link}/assets/FrameDaddy.vcf`;
+function analyze_message(message) {
+    var _a, _b, _c, _d, _e;
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            Coda_doc = yield coda.getDoc('Wkshedo2Sb');
-            Coda_messages_table = yield Coda_doc.getTable('grid-_14oaR8gdM'), Coda_users_table = yield Coda_doc.getTable('grid-VBi-mmgrKi');
-            const Coda_user_rows = yield Coda_users_table.listRows({ useColumnNames: true });
-            users = Coda_user_rows.map((row) => (row.values).phone);
+            const t0 = Date.now();
+            let message_response = Object.assign(Object.assign({}, message_default), { number: message.number });
+            // intro message
+            if (!users.includes(message.number) || (admin_numbers.includes(message.number) && ((_a = message.content) === null || _a === void 0 ? void 0 : _a.toLowerCase()) == 'first')) {
+                const user = yield prisma.user.create({ data: { name: null, email: null, order: null, number: message.number } });
+                users.push(message.number);
+                yield send_message(Object.assign(Object.assign({}, message_response), { content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by ChatGPT so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: 'intro' }));
+                message.media_url ? yield layer_image(message, user) : yield send_message(Object.assign(Object.assign({}, message_response), { content: 'Send a photo to get started!' }));
+                return;
+            }
+            if ((_b = message.content) === null || _b === void 0 ? void 0 : _b.toLowerCase().startsWith('reset')) {
+                return;
+            } // reset
+            const user = yield prisma.user.findUnique({ where: { number: message.number } });
+            if (!user) {
+                error_alert('NO USER ERROR');
+                return;
+            }
+            if (message.media_url) {
+                yield layer_image(message, user);
+                return;
+            }
+            console.log(`${Date.now() - t0}ms - analyze_message user`);
+            const previous_messages = yield get_previous_messages(message, 8);
+            const categories = [
+                "help", "order_quantity", "customer_support",
+                // "checkout", "new_order",
+            ];
+            const categorize = yield openai.createCompletion({
+                model: 'text-davinci-003',
+                prompt: `
+      Categorize the following text into one of the following: [${categories}]. "checkout" is when for when the customer no longer wants to send photos and is checkout ou. "new_order" is when they say they want to start a new order. "customer_support" if they want to speak to a representative or you can't help them. If you are unsure, go with help. Example:
+      Text: I'll take 2 white frames and three black
+      Category: order_quantity
+      Text: how does this work and how much do the frames cost?
+      Category: help
+      Text: how many frames can I get?
+      Category: help
+      Text: dfjfasd5
+      Category: help
+      Text: I'd like to speak to a human
+      Category: customer_support
+      ###
+      Previous Messages
+      ${previous_messages}
+      ###
+      Text: ${message.content}
+      Category:`
+            });
+            const category = (_c = categorize.data.choices[0].text) === null || _c === void 0 ? void 0 : _c.replace(/\s+/g, "");
+            console.log(`${Date.now() - t0}ms - /analyze_message - categorize (${category})`);
+            // cateogrization error
+            if (!category || !categories.includes(category)) {
+                error_alert(` ! miscategorization (${message.number}): '${message.content}'\ncategory: ${category}`, message);
+                yield send_message(Object.assign(Object.assign({}, message_response), { content: `Sorry bugged out. Try again, your message has been sent to support to fix the bug.` }));
+                return;
+            }
+            /* let openAIResponse: any = await openai.createCompletion({
+              model: 'text-davinci-003', temperature: 0.5, max_tokens: 256,
+              prompt: `A customer is ordering one or more framed photo.Extract the quantity of black and white frames desired from their message.Return the quantities in the following format:
+              <image_url 1 >| <black quantities 1 >, <white quantities 1 >
+              <image_url 2 >| <black quantities 2 >, <white quantities 2 >
+              ...
+              Current Order:
+              ${user.order}
+              ###
+              ${previous_messages}
+              Order:
+              `
+            }) */
+            if (category == 'order_quantity') {
+                let openAIResponse = yield openai.createCompletion({
+                    model: 'text-davinci-003', temperature: 0.5, max_tokens: 256,
+                    prompt: `A customer is ordering one or more framed photo. Extract the quantity of black and white frames desired from their message. Return the quantities in the following format: <black quantities>,<white quantities>
+        Examples:
+        Text: I'll take both
+        Values: 1,1
+        ###
+        Current Order:
+        Message: ${message.content}
+        Values:`
+                });
+                // remove blank space from response, split into array
+                const quantities = (_d = openAIResponse.data.choices[0].text) === null || _d === void 0 ? void 0 : _d.toString().replace(/[^0-9,]/g, '').split(',');
+                yield send_message(Object.assign(Object.assign({}, message_response), { content: `Nice choice, I’ll get this shipped out ASAP. Click the link to checkout: https://textframedaddy.com/cart/43286555033836:${quantities[0]},43480829198572:${quantities[1]}` }));
+            }
+            else if (category == 'help') {
+                let prompt = `${help_prompt}\n###${previous_messages}\nCustomer: ${message.content}FrameDaddy:`, content, media_url;
+                let openAIResponse = yield openai.createCompletion({ max_tokens: 512, model: 'text-davinci-003', prompt: prompt, temperature: .5, presence_penalty: 0.7, frequency_penalty: 0.7, });
+                openAIResponse = openAIResponse.data.choices[0].text;
+                if (openAIResponse.includes('media_url'))
+                    content = openAIResponse.split('media_url:')[0], media_url = openAIResponse.split('media_url:')[1];
+                else
+                    content = openAIResponse;
+                console.log(prompt + content);
+                yield send_message(Object.assign(Object.assign({}, message_response), { content: content, media_url: media_url }));
+            }
+            else if (category == 'new_order') {
+                yield send_message(Object.assign(Object.assign({}, message_response), { content: `starting a new order.` }));
+                yield log_message(message);
+                (_e = message.date) === null || _e === void 0 ? void 0 : _e.setSeconds(message.date.getSeconds() - 1);
+                log_message(Object.assign(Object.assign({}, message_response), { content: 'new_order', number: message.number, date: message.date, type: 'new_order' }));
+            }
+            else if (category == 'customer_support') {
+                send_message(Object.assign(Object.assign({}, message_response), { content: `Connecting you with a human, sorry for the trouble.`, type: category }));
+                sendblue.sendGroupMessage({ content: `SUPPORT (${message.number}\n${message.content}`, numbers: admin_numbers });
+            }
+            else if (category == 'checkout') {
+                if (!user.order) {
+                    return;
+                }
+                const order = user.order.replace(/[^0-9,]/g, '').split('&&');
+                const links = order.map((order) => order.split('|')[0]), quantities = order.map((order) => order.split('|')[1]);
+                const black_quantities = order.map((quantities) => quantities.split(',')[0]);
+                const white_quantities = order.map((quantities) => quantities.split(',')[1]);
+            }
+            yield log_message(message);
+        }
+        catch (e) {
+            error_alert(e);
+        }
+    });
+}
+const message_date_format = { weekday: 'short', hour: 'numeric', minute: 'numeric', hour12: true };
+function get_previous_messages(message, amount = 14) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let reset_message = new Date();
+        try {
+            const reset_message_loc = yield prisma.message.findFirstOrThrow({
+                where: {
+                    number: message.number, OR: [
+                        { content: { startsWith: 'reset', mode: 'insensitive' } },
+                        { type: { equals: client_1.MessageType.order_placed } },
+                        { type: { equals: client_1.MessageType.new_order } }
+                    ]
+                }, orderBy: { date: 'desc' }
+            }); // TODO not ideal cuz parses EVERY message from that number lol
+            reset_message = reset_message_loc.date;
+        }
+        catch (_a) {
+            reset_message.setDate(new Date().getDate() - 30);
+        }
+        const previous_messages = yield prisma.message.findMany({
+            where: { number: message.number, date: { gt: reset_message } }, orderBy: { date: 'desc' }, take: amount
+        });
+        // let previous_messages_string = previous_messages.map((message) => { return `\n[${message.date?.toLocaleString('en-US', message_date_format)}] ${message.is_outbound ? 'FrameDaddy:' : 'Human:'} ${message.content}` }).reverse().join('')
+        const ignore_content_types = [client_1.MessageType.new_order, client_1.MessageType.order_placed, client_1.MessageType.customer_support];
+        let previous_messages_string = previous_messages.map((message) => { return `\n${message.is_outbound ? 'FrameDaddy:' : 'Human:'} ${(message.type != null && ignore_content_types.includes(message.type)) ? `<${message.type}>` : message.content}`; }).reverse().join('');
+        return previous_messages_string;
+    });
+}
+// sendblue.sendGroupMessage({ content: `testing Sendblue group message`, numbers: admin_numbers })
+function layer_image(message, user) {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        const t0 = Date.now();
+        let public_id = `${message.number.substring(2)}_${(_a = message.date) === null || _a === void 0 ? void 0 : _a.toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/[:,]/g, '').replace(/[/\s]/g, '-')}`;
+        console.log(public_id); // ex: '3104974985_10-20-21_18-00-00'
+        try {
+            let data = yield cloudinary_1.v2.uploader.upload(message.media_url, {
+                public_id: public_id, folder: '/FrameDaddy/submissions',
+                fetch_format: "jpg", exif: true, // colors: true, media_metadata: true // ! 'exif' supposed to be deprecated for 'media_metadata', which isn't working
+                /* [
+                  { if: "ar_lt_1.0" },
+                  { background: "auto", height: 300, width: 500, crop: "pad" },
+                  { if: "end" }
+                ] */
+            });
+            let message_response = Object.assign(Object.assign({}, message_default), { number: user.number, type: client_1.MessageType.layered_image });
+            yield log_message(Object.assign(Object.assign({}, message), { media_url: data.url }));
+            let orientation = data.exif.Orientation, width = data.width, height = data.height, ratio = data.width / data.height, path = `v${data.version}:${data.public_id.replace(/\//g, ':')}.${data.format}`;
+            console.log(`path: ${path}`);
+            if ((0.76 < ratio || ratio < 0.67) && (0.76 < 1 / ratio || 1 / ratio < .67)) {
+                // TODO add a crop
+                yield send_message(Object.assign(Object.assign({}, message_response), { content: `Looks like your photo's the wrong aspect ratio, follow the picture below (5:7 or 7:5 ratio) and send again.`, media_url: `${link}/assets/aspect_ratio_tutorial.png` }));
+            }
+            else {
+                let setup, background_crop, ar, distort; // distort = [left, right]
+                if (ratio < 1)
+                    setup = 'vertical', background_crop = [4930, 3849], ar = '5:7', distort = ['1216:2054:2158:2138:2052:3482:1055:3316', '2957:2125:3881:2021:4119:3310:3158:3484'];
+                else
+                    setup = 'horizontal', background_crop = [2896, 2172], ar = '7:5', distort = ['285:534:918:534:913:1008:284:1010', '1926:517:2592:510:2593:1001:1927:1004'];
+                const image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/q_60/u_${path}/e_distort:${distort[0]}/fl_layer_apply,g_north_west,x_0,y_0/u_${path}/e_distort:${distort[1]}/fl_layer_apply,g_north_west/c_crop,g_north_west,w_${background_crop[0]},h_${background_crop[1]}/FrameDaddy/assets/double_${setup}.jpg`;
+                // const image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/q_60/u_${path}/c_fill,g_auto,ar_${ar}/e_distort:${distort[0]}/fl_layer_apply,g_north_west,x_0,y_0/u_${path}/c_fill,g_auto,ar_${ar}/e_distort:${distort[1]}/fl_layer_apply,g_north_west,x_0,y_0/c_crop,g_north_west,h_${background_crop[1]},w_${background_crop[0]}//FrameDaddy/assets/double_${setup}.jpg`
+                console.log(`image: ${image}`);
+                yield send_message(Object.assign(Object.assign({}, message_response), { media_url: image }));
+                send_message(Object.assign(Object.assign({}, message_response), { content: `How many of each color frame do you want?` }));
+                if (user.order == '')
+                    send_message(Object.assign(Object.assign({}, message_response), { content: `If you want more photos framed keep em coming, otherwise let me know when you want to checkout` }));
+                const image_mod = yield cloudinary_1.v2.image(public_id, { gravity: "auto", aspect_ratio: ar, crop: "fill" });
+                console.log(`image_mod: ${image_mod}`);
+            }
+            console.log(`${Date.now() - t0}ms - cloudinary_edit`);
+        }
+        catch (e) {
+            error_alert(e);
+        }
+    });
+}
+function send_message(message) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const t0 = Date.now();
+            if (message) {
+                message.date = new Date(), message.is_outbound = true;
+                if (message.response_time)
+                    message.response_time = (new Date().valueOf() - message.response_time.valueOf()) / 1000;
+                yield sendblue.sendMessage({ content: message.content ? message.content : undefined, number: message.number, send_style: message.send_style ? message.send_style : undefined, media_url: message.media_url ? message.media_url : undefined, status_callback: `${link}/message-status` });
+                console.log(`${message.response_time}s - send_message: (${message.number}) ${message.content} (${message.media_url})`);
+                yield log_message(message);
+            }
+        }
+        catch (e) {
+            error_alert(e);
+        }
+    });
+}
+function log_message(message) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            yield prisma.message.create({ data: message });
+            const Coda_doc = yield coda.getDoc(coda_doc_key);
+            const Coda_messages_table = yield Coda_doc.getTable(coda_messages_key);
+            // 'content',      'picture',
+            // 'received_PST', 'number',
+            // 'customer',     'Row ID',
+            // 'total',        'referral',
+            // 'test',         'media_url',
+            // 'is_outbound'
+            yield Coda_messages_table.insertRows([{ content: message.content ? message.content : undefined, picture: message.media_url ? message.media_url : undefined, media_url: message.media_url ? message.media_url : undefined, number: message.number, received_PST: message.date, is_outbound: message.is_outbound ? message.is_outbound : undefined }]);
         }
         catch (e) {
             console.log(e);
         }
     });
 }
-const job = new cron_1.default.CronJob('0 0 */1 * *', () => __awaiter(void 0, void 0, void 0, function* () { local_data(); }));
-job.start();
-function analyze_message(message) {
-    var _a, _b;
-    return __awaiter(this, void 0, void 0, function* () {
-        const t0 = Date.now();
-        if (!users.includes(message.number)) { // check for new user
-            console.log('new user');
-            yield send_message({ content: `Hey I'm TextFrameDaddy.com, the easiest way to put a 5x7 photo in a frame. I'm powered by ChatGPT so feel free to speak naturally! Add my contact below`, send_style: 'lasers', number: message.number, media_url: 'http://message.textframedaddy.com/assets/FrameDaddy.vcf' });
-            yield send_message({ content: 'send a photo to get started!', number: message.number });
-            users.push(message.number);
-            return;
-        }
-        console.log('existing user');
-        if ((_a = message.content) === null || _a === void 0 ? void 0 : _a.toLowerCase().startsWith('support')) {
-            send_message({ content: `Connecting you with a human, sorry for the trouble.`, number: message.number });
-            yield send_message({ content: `SUPPORT (${message.number}\n${message.content}`, number: '+13104974985' });
-        }
-        if (message.media_url) {
-            yield image_layer(message);
-            return;
-        }
-        const categorize = () => __awaiter(this, void 0, void 0, function* () {
-            var _c;
-            try {
-                const category = yield openai.createCompletion({
-                    model: 'text-davinci-003',
-                    prompt: `Categorize the following text into one of the following: ["help", "order quantity"]. Example:\nText: I'll take 2 white frames and three black\nCategory: "order quantity"\nText: how does this work and how much do the frames cost?\nCategory: "help"\n\nText: how many frames can I get?\nCategory: "help"\n###\nText: ${message.content}\nCategory:`
-                });
-                console.log(`category: ${category}`);
-                return (_c = category.data.choices[0].text) === null || _c === void 0 ? void 0 : _c.toLowerCase();
-            }
-            catch (e) {
-                return null;
-            }
-        });
-        const category = yield categorize();
-        if (!category || (!category.includes('order') && !category.includes('help'))) {
-            error_alert(` ! miscategorization (${message.number}): '${message.content}'\ncategory: ${category}`, message);
-            yield send_message({ content: `¿yo no comprendo 🤷‍♂️? Somebody will reach out shortly`, number: message.number });
-            return;
-        }
-        // TODO implement retry feature if response isn't one of two?
-        /*  try {
-          await retryAsync( async () => {
-        
-            }, { delay: 100, maxTry: 3, } )
-        } catch (err) {
-          if (isTooManyTries(err)) { error_alert(err)
-          } else { error_alert(err) }
-        } */
-        if (category.includes('order')) {
-            let openAIResponse = yield openai.createCompletion({
-                model: 'text-davinci-003',
-                prompt: `A customer is ordering one or more framed photo. Extract the quantity of black and white frames desired from their message. Return the quantities in the following format: <black quantities>,<white quantities>.\nExamples:\nText: I'll take both\nValues: 1,1\n###\nMessage: ${message.content}\nValues:`
-            });
-            // remove blank space from response, split into array
-            const quantities = (_b = openAIResponse.data.choices[0].text) === null || _b === void 0 ? void 0 : _b.toString().replace(/[^0-9,]/g, '').split(',');
-            // TODO: check if quantities are valid
-            yield send_message({ content: `Nice choice, I’ll get this shipped out ASAP. Click the link to checkout: https://textframedaddy.com/cart/43286555033836:${quantities[0]},43480829198572:${quantities[1]}`, number: message.number });
-        }
-        else if (category.includes('help')) {
-            // TODO add message context
-            let openAIResponse = yield openai.createCompletion({
-                model: 'text-davinci-003', max_tokens: 256,
-                prompt: `You are a superintelligent customer support chatbot. Guide the customer along and answer any questions. You operate over text message so keep responses brief and casual. Answer questions specifically, without extraneious information. Speak casually. If you cannot help the customer or they want to speak to a representative, put "SUPPORT" as the Response. Use the following information and description of our service to aid users:\n- how does it work? users text a photo (portrait or landscape) they want framed to get started\n- what are the details? the photos are 5"x7" and only come in black or white frames for $19.99\n- Adam and Alex lovingly handframe, package, and ship your photo from New York\n- frames have a wall-hook and easel-back to hang or stand up\n- our website is textframedaddy.com. if you prefer, or are having troubles with the texting service, you can upload your photo there\n- FrameDaddy's number is  (650) 537-0786\n- support email is business@textframedaddy.com\n- to talk to a representative, start your text with "support"\nThe ONLY link you should send is textframedaddy.com\nThe customer has sent the following message:\n
-      Message: ${message.content}\nResponse:`
-            });
-            yield send_message({ content: openAIResponse.data.choices[0].text, number: message.number });
-        }
-        yield Coda_messages_table.insertRows([{ content: message.content, picture: message.media_url, phone: message.number, "received (PST)": message.date }]);
-    });
-}
-function image_layer(message) {
-    var _a;
-    return __awaiter(this, void 0, void 0, function* () {
-        const t0 = Date.now();
-        let public_id = `${message.number.substring(1)}_${(_a = message.date) === null || _a === void 0 ? void 0 : _a.toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/[:,]/g, '').replace(/[/\s]/g, '-')}`;
-        console.log(public_id);
-        try {
-            let data = yield cloudinary_1.v2.uploader.upload(message.media_url, {
-                public_id: public_id, folder: '/FrameDaddy/submissions',
-                exif: true, // media_metadata: true, // ! 'exif' supposed to be deprecated for 'media_metadata', which isn't working
-            });
-            yield Coda_messages_table.insertRows([{ content: message.content, picture: data.url, phone: message.number, "received (PST)": message.date }]);
-            // ratio<1=normal, orientation<4 = landscape (1=left, 3=right), >4=portrait (6=up, 8=down)
-            let orientation = data.exif.Orientation, width = data.width, height = data.height, ratio = data.width / data.height, path = `u_v${data.version}:${data.public_id.replace(/\//g, ':')}.${data.format}`;
-            console.log(`path: ${path}`);
-            console.log(ratio, orientation);
-            /*
-            organic horizontal: ratio = 1.33, orientation = 1/3
-            vertical rotated: ratio = 1.33, orientation = 1/3
-            organic vertical: ratio = 0.75, orientation = 6/8
-            */
-            if ((0.77 < ratio || ratio < 0.66) && (0.77 < 1 / ratio || 1 / ratio < .66)) {
-                yield send_message({ content: `Looks like your photo's the wrong aspect ratio, follow the picture below (5:7 or 7:5 ratio) and send again.`, number: message.number, media_url: 'http://message.textframedaddy.com/assets/aspect_ratio_tutorial.png' });
-            }
-            else {
-                let setup, distort; // distort = [left, right]
-                if (ratio < 1) {
-                    setup = 'vertical', distort = ['1216:2054:2158:2138:2052:3482:1055:3316', '2957:2125:3881:2021:4119:3310:3158:3484'];
-                }
-                else {
-                    setup = 'horizontal', distort = ['285:534:918:534:913:1008:284:1010', '1926:517:2592:510:2593:1001:1927:1004'];
-                }
-                const quality = 60;
-                const image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/q_${quality}/${path}/e_distort:${distort[0]}/fl_layer_apply,g_north_west,x_0,y_0/${path}/e_distort:${distort[1]}/fl_layer_apply,g_north_west/FrameDaddy/assets/double_${setup}.jpg`;
-                console.log(`image: ${image}`);
-                yield send_message({ media_url: image, number: message.number });
-                send_message({ content: `How many of each frame do you want?`, number: message.number });
-            }
-            console.log(`${Date.now() - t0}ms - cloudinary_edit`);
-        }
-        catch (error) {
-            error_alert(error);
-        }
-    });
-}
-function send_message(message) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const t0 = Date.now();
-        message.date = new Date(), message.is_outbound = true;
-        yield sendblue.sendMessage({ content: message.content, number: message.number, send_style: message.send_style, media_url: message.media_url, status_callback: `${link}/message-status` });
-        console.log(`${Date.now() - t0}ms - send_message: (${message.number}) ${message.content}`);
-        yield Coda_messages_table.insertRows([{ content: message.content, picture: message.media_url, phone: message.number, "received (PST)": message.date }]);
-    });
-}
 function error_alert(error, message) {
-    return __awaiter(this, void 0, void 0, function* () {
-        yield send_message({ content: `ERROR\n${error}`, number: '+13104974985' });
-        console.error(`ERROR: ${error}`);
-    });
+    return __awaiter(this, void 0, void 0, function* () { yield send_message(Object.assign(Object.assign({}, message_default), { content: `ERROR\n${error}`, number: AdminNumbers.Ian })); console.error(`ERROR: ${error}`); });
 }
 // ======================================================================================
 // ========================================TESTING=======================================
 // ======================================================================================
 // const shopify = shopifyApi({
-//   apiKey: process.env.SHOPIFY_API_KEY!, apiSecretKey: process.env.SHOPIFY_ADMIN_ACCESS_TOKEN!, apiVersion: LATEST_API_VERSION, isCustomStoreApp: true, scopes: ['read_products', 'read_orders', 'read_customers', 'read_order_edits',], isEmbeddedApp: true, hostName: hostname,
+// apiKey: process.env.SHOPIFY_API_KEY!, apiSecretKey: process.env.SHOPIFY_ADMIN_ACCESS_TOKEN!, apiVersion: LATEST_API_VERSION, isCustomStoreApp: true, scopes: ['read_products', 'read_orders', 'read_customers', 'read_order_edits',], isEmbeddedApp: true, hostName: hostname,
 // })
 // const session = shopify.session.customAppSession(process.env.SHOPIFY_SHOP_LINK!)
 // const client = new shopify.clients.Graphql({ session })
-const abe = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Abraham_Lincoln_O-77_matte_collodion_print.jpg', sample_vertical = 'https://storage.googleapis.com/inbound-file-store/47yEEPvo_61175D25-640A-4EA4-A3A1-608BBBBD76DDIMG_2914.heic', sample_horizontal = '';
-let test_message = { content: 'test_message', number: '+13104974985', date: new Date(), media_url: sample_vertical, };
-// test()
-function test() {
-    return __awaiter(this, void 0, void 0, function* () { console.log(yield image_layer(test_message)); });
-}
+/*
+draftOrderCreate
+draftOrderCreateMerchantCheckout: https://shopify.dev/docs/api/admin-graphql/2023-01/mutations/draftOrderCreateMerchantCheckout
+*/
 // product_update()
 /* async function product_update() {
   const startTime = Date.now()
@@ -268,4 +397,23 @@ function test() {
   const endTime = Date.now()
   console.log(`product_update: ${Math.round(endTime - startTime)}ms`)
   console.log(`Sunday_products: ${Sunday_products}`)
-} */ 
+} */
+const abe = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Abraham_Lincoln_O-77_matte_collodion_print.jpg', sample_vertical = 'https://storage.googleapis.com/inbound-file-store/47yEEPvo_61175D25-640A-4EA4-A3A1-608BBBBD76DDIMG_2914.heic', sample_horizontal = 'https://storage.googleapis.com/inbound-file-store/1Nq7Sytl_01C13E5D-6496-4979-A236-EC2945A10D47.heic';
+let test_message = Object.assign(Object.assign({}, message_default), { content: 'test_message', number: '+13104974985', date: new Date(), media_url: sample_vertical });
+// test(test_message)
+function test(message, user) {
+    return __awaiter(this, void 0, void 0, function* () {
+        // const message_default_coda = { content: undefined, number: '', type: undefined, is_outbound: undefined, date: new Date(), was_downgraded: undefined, media_url: undefined, send_style: undefined, response_time: undefined }
+        const Coda_doc = yield coda.getDoc(coda_doc_key);
+        const Coda_messages_table = yield Coda_doc.getTable(coda_messages_key);
+        // await Coda_messages_table.insertRows([{ content: message.content, picture: message.media_url, media_url: message.media_url, number: message.number, received_PST: message.date, is_outbound: message.is_outbound }])
+        const coda_message = yield Coda_messages_table.insertRows([{ content: undefined, picture: undefined, media_url: undefined, number: undefined, received_PST: new Date(), is_outbound: undefined }]);
+        // 'content',      'picture',
+        // 'received_PST', 'phone',
+        // 'UUID',         'customer',
+        // 'media',     
+        // 'referral',     'test',
+        // 'picture_url',  'is_outbound'
+        // console.log(`coda_message: ${coda_message}`)
+    });
+}

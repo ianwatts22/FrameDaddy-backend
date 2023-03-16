@@ -20,6 +20,7 @@ function cloudinary() {
   const columns = await Coda_messages_table.listColumns(null)
   // console.log(columns.map((column) => (column as {name: string}).name))
 } */
+// ==================MALLABE + DYNAPICTURES==================
 /* async function layer_image(message: Message) {
   const options = {
     method: 'POST', url: 'https://mallabe.p.rapidapi.com/v1/images/metadata',
@@ -39,13 +40,25 @@ function cloudinary() {
     orientation > 4 ? DYNAPICTURES_UID = horizontalUID : DYNAPICTURES_UID = verticalUID
   } else { orientation > 4 ? DYNAPICTURES_UID = verticalUID : DYNAPICTURES_UID = horizontalUID }
 
-
-
-  // layer image with Dynapictures
   axios.post(`https://api.dynapictures.com/designs/${DYNAPICTURES_UID}`, { params: [{ url: abe }] }, { headers: { 'Authorization': `Bearer ${process.env.DYNAPICTURES_API_KEY}`, 'Content-Type': 'application/json' } })
-    .then(response => {
-      console.log(response.data)
-      return response.data.url
-    })
-    .catch(error => { console.error(error) })
-} */ 
+    .then(response => { console.log(response.data) ; return response.data.url
+    }).catch(error => { console.error(error) })
+} */
+// ==================CODA AXIOS REQUESTS==================
+/* const coda_headers = { Authorization: `Bearer ${process.env.CODA_API_KEY}` }
+const users_uri = `https://coda.io/apis/v1/docs/${coda_doc_key}/tables/${coda_users_key}/rows`
+const messages_uri = `https://coda.io/apis/v1/docs/${coda_doc_key}/tables/${coda_messages_key}/rows`
+
+let coda_tables_uri = `https://coda.io/apis/v1/docs/${coda_doc_key}/tables`
+
+const coda_axios_request_config: AxiosRequestConfig<any> = { headers: coda_headers }
+
+axios.get(coda_tables_uri, coda_axios_request_config)
+  .then(response => { console.log(`first table is ${response.data.items[0].name}`)
+  }).catch(error => { console.error(error) })
+
+const params = { params: { query: 'phone:"+13104974985"', }, headers: coda_headers }
+
+axios.get(users_uri, params)
+  .then((response) => { console.log(`Matching rows: ${response.data.items.length}`)
+  }) .catch((e) => { console.error(e) }) */ 

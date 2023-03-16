@@ -1,0 +1,15 @@
+https://res.cloudinary.com/dpxdjc7qy/image/upload/q_60/u_v1678916125:FrameDaddy:submissions:3104974985_03-15-23-143524.heic/e_distort:285:534:918:534:913:1008:284:1010/fl_layer_apply,g_north_west,x_0,y_0/u_v1678916125:FrameDaddy:submissions:3104974985_03-15-23-143524.heic/e_distort:1926:517:2592:510:2593:1001:1927:1004/fl_layer_apply,g_north_west/c_crop,g_north_west,h_2172,w_2896//FrameDaddy/assets/double_horizontal.jpg
+
+horizontal: https://res.cloudinary.com/dpxdjc7qy/image/upload/q_60/u_v1678916125:FrameDaddy:submissions:3104974985_03-15-23-143524.heic/e_distort:285:534:918:534:913:1008:284:1010/fl_layer_apply,g_north_west,x_0,y_0/u_v1678916125:FrameDaddy:submissions:3104974985_03-15-23-143524.heic/e_distort:1926:517:2592:510:2593:1001:1927:1004/fl_layer_apply,g_north_west/c_crop,g_north_west,h_2172,w_2896//FrameDaddy/assets/double_horizontal.jpg
+
+disposable horizontal: https://res.cloudinary.com/dpxdjc7qy/image/upload/q_60/u_v1678916924:FrameDaddy:submissions:3104974985_03-15-23-144843.heic/e_distort:285:534:918:534:913:1008:284:1010/fl_layer_apply,g_north_west,x_0,y_0/u_v1678916924:FrameDaddy:submissions:3104974985_03-15-23-144843.heic/e_distort:1926:517:2592:510:2593:1001:1927:1004/fl_layer_apply,g_north_west/c_crop,g_north_west,h_2172,w_2896//FrameDaddy/assets/double_horizontal.jpg
+- v1678916924:FrameDaddy:submissions:3104974985_03-15-23-144843.heic
+
+
+//////////
+
+https://res.cloudinary.com/dpxdjc7qy/image/upload/q_60/c_crop,g_auto,ar_7:5/u_v1678919110:FrameDaddy:submissions:3104974985_03-15-23-152508.jpg/e_distort:285:534:918:534:913:1008:284:1010/fl_layer_apply,g_north_west/c_crop,g_auto,ar_7:5/u_v1678919110:FrameDaddy:submissions:3104974985_03-15-23-152508.jpg/e_distort:1926:517:2592:510:2593:1001:1927:1004/fl_layer_apply,g_north_west/c_crop,g_north_west,h_2172,w_2896//FrameDaddy/assets/double_horizontal.jpg
+
+https://res.cloudinary.com/dpxdjc7qy/image/upload/f_jpg/l_v1678919110:FrameDaddy:submissions:3104974985_03-15-23-152508.jpg/c_fill,g_auto,ar_7:5/e_distort:1926:517:2592:510:2593:1001:1927:1004/fl_layer_apply,g_north_west/FrameDaddy/assets/double_horizontal.jpg
+
+https://res.cloudinary.com/dpxdjc7qy/image/upload/q_60/u_v1678920642:FrameDaddy:submissions:3104974985_03-15-23-155039.jpg/c_fill,g_auto,ar_5:7/e_distort:1216:2054:2158:2138:2052:3482:1055:3316/fl_layer_apply,g_north_west,x_0,y_0/u_v1678920642:FrameDaddy:submissions:3104974985_03-15-23-155039.jpg/c_fill,g_auto,ar_5:7/e_distort:2957:2125:3881:2021:4119:3310:3158:3484/fl_layer_apply,g_north_west,x_0,y_0/c_crop,g_north_west,h_3849,w_4930//FrameDaddy/assets/double_vertical.jpg

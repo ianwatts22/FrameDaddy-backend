@@ -1,0 +1,349 @@
+{
+  "config": { "target": "http://127.0.0.1:2023", "phases": [ { "duration": 1, "arrivalRate": 1 } ] },
+  "scenarios": [ { "name": "API Request", "flow": [ { "post": {
+    "url": "/order",
+    "json": {
+      "id": 5254850216256,
+      "admin_graphql_api_id": "gid://shopify/Order/5254850216256",
+      "app_id": 580111,
+      "browser_ip": "45.49.228.252",
+      "buyer_accepts_marketing": false,
+      "cancel_reason": null,
+      "cancelled_at": null,
+      "cart_token": "5e02a1339e069f08e7bf81e18612b563",
+      "checkout_id": 36544462356800,
+      "checkout_token": "8ce6f94a8e22fbc08537c9094c50755d",
+      "client_details": {
+        "accept_language": "en-US",
+        "browser_height": null,
+        "browser_ip": "45.49.228.252",
+        "browser_width": null,
+        "session_hash": null,
+        "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36 Edg/109.0.1518.78"
+      },
+      "closed_at": null,
+      "confirmed": true,
+      "contact_email": "ianwatts22@gmail.com",
+      "created_at": "2023-02-11T15:56:55-05:00",
+      "currency": "USD",
+      "current_subtotal_price": "0.00",
+      "current_subtotal_price_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "current_total_discounts": "0.00",
+      "current_total_discounts_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "current_total_duties_set": null,
+      "current_total_price": "0.00",
+      "current_total_price_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "current_total_tax": "0.00",
+      "current_total_tax_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "customer_locale": "en-US",
+      "device_id": null,
+      "discount_codes": [],
+      "email": "ianwatts22@gmail.com",
+      "estimated_taxes": false,
+      "financial_status": "paid",
+      "fulfillment_status": null,
+      "gateway": null,
+      "landing_site": "/",
+      "landing_site_ref": null,
+      "location_id": null,
+      "merchant_of_record_app_id": null,
+      "name": "#1028",
+      "note": null,
+      "note_attributes": [],
+      "number": 28,
+      "order_number": 1028,
+      "order_status_url": "https://bloody-sunday-teeeeeest.myshopify.com/72440938816/orders/900994e8e20306d9a3b7b880ebe48d31/authenticate?key=7fef4716728aec6f359bc9fe3114b610",
+      "original_total_duties_set": null,
+      "payment_gateway_names": [],
+      "phone": null,
+      "presentment_currency": "USD",
+      "processed_at": "2023-02-11T15:56:54-05:00",
+      "processing_method": "",
+      "reference": "4600617d42a387cd4c48737baa0200c1",
+      "referring_site": "",
+      "source_identifier": "4600617d42a387cd4c48737baa0200c1",
+      "source_name": "web",
+      "source_url": null,
+      "subtotal_price": "0.00",
+      "subtotal_price_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "tags": "",
+      "tax_lines": [],
+      "taxes_included": false,
+      "test": false,
+      "token": "900994e8e20306d9a3b7b880ebe48d31",
+      "total_discounts": "0.00",
+      "total_discounts_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "total_line_items_price": "0.00",
+      "total_line_items_price_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "total_outstanding": "0.00",
+      "total_price": "0.00",
+      "total_price_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "total_shipping_price_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "total_tax": "0.00",
+      "total_tax_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "total_tip_received": "0.00",
+      "total_weight": 0,
+      "updated_at": "2023-02-11T15:56:55-05:00",
+      "user_id": null,
+      "billing_address": {
+        "first_name": "Ian",
+        "address1": "340 North Gunston Drive",
+        "phone": "3104974985",
+        "city": "Los Angeles",
+        "zip": "90049",
+        "province": "California",
+        "country": "United States",
+        "last_name": "Watts",
+        "address2": null,
+        "company": null,
+        "latitude": null,
+        "longitude": null,
+        "name": "Ian Watts",
+        "country_code": "US",
+        "province_code": "CA"
+      },
+      "customer": {
+        "id": 6785001587008,
+        "email": "ianwatts22@gmail.com",
+        "accepts_marketing": false,
+        "created_at": "2023-02-10T02:45:05-05:00",
+        "updated_at": "2023-02-11T15:56:55-05:00",
+        "first_name": "Ian",
+        "last_name": "Watts",
+        "state": "disabled",
+        "note": null,
+        "verified_email": true,
+        "multipass_identifier": null,
+        "tax_exempt": false,
+        "tags": "",
+        "currency": "USD",
+        "phone": null,
+        "accepts_marketing_updated_at": "2023-02-10T02:45:05-05:00",
+        "marketing_opt_in_level": null,
+        "tax_exemptions": [],
+        "email_marketing_consent": {
+          "state": "not_subscribed",
+          "opt_in_level": "single_opt_in",
+          "consent_updated_at": null
+        },
+        "sms_marketing_consent": null,
+        "admin_graphql_api_id": "gid://shopify/Customer/6785001587008",
+        "default_address": {
+          "id": 9035926602048,
+          "customer_id": 6785001587008,
+          "first_name": "Ian",
+          "last_name": "Watts",
+          "company": null,
+          "address1": "340 North Gunston Drive",
+          "address2": null,
+          "city": "Los Angeles",
+          "province": "California",
+          "country": "United States",
+          "zip": "90049",
+          "phone": "3104974985",
+          "name": "Ian Watts",
+          "province_code": "CA",
+          "country_code": "US",
+          "country_name": "United States",
+          "default": true
+        }
+      },
+      "discount_applications": [],
+      "fulfillments": [],
+      "line_items": [
+        {
+          "id": 13743697396032,
+          "admin_graphql_api_id": "gid://shopify/LineItem/13743697396032",
+          "fulfillable_quantity": 1,
+          "fulfillment_service": "manual",
+          "fulfillment_status": null,
+          "gift_card": false,
+          "grams": 0,
+          "name": "BLOOOODY TEE - free",
+          "price": "0.00",
+          "price_set": {
+            "shop_money": {
+              "amount": "0.00",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "0.00",
+              "currency_code": "USD"
+            }
+          },
+          "product_exists": true,
+          "product_id": 8142779842880,
+          "properties": [],
+          "quantity": 1,
+          "requires_shipping": true,
+          "sku": "",
+          "taxable": true,
+          "title": "BLOOOODY TEE",
+          "total_discount": "0.00",
+          "total_discount_set": {
+            "shop_money": {
+              "amount": "0.00",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "0.00",
+              "currency_code": "USD"
+            }
+          },
+          "variant_id": 44423406518592,
+          "variant_inventory_management": "shopify",
+          "variant_title": "free",
+          "vendor": "Bloody Sunday TEEEEEEST",
+          "tax_lines": [],
+          "duties": [],
+          "discount_allocations": []
+        }
+      ],
+      "payment_terms": null,
+      "refunds": [],
+      "shipping_address": {
+        "first_name": "Ian",
+        "address1": "340 North Gunston Drive",
+        "phone": "3104974985",
+        "city": "Los Angeles",
+        "zip": "90049",
+        "province": "California",
+        "country": "United States",
+        "last_name": "Watts",
+        "address2": null,
+        "company": null,
+        "latitude": 34.0729366,
+        "longitude": -118.4705888,
+        "name": "Ian Watts",
+        "country_code": "US",
+        "province_code": "CA"
+      },
+      "shipping_lines": [
+        {
+          "id": 4295595262272,
+          "carrier_identifier": "650f1a14fa979ec5c74d063e968411d4",
+          "code": "free test",
+          "delivery_category": null,
+          "discounted_price": "0.00",
+          "discounted_price_set": {
+            "shop_money": {
+              "amount": "0.00",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "0.00",
+              "currency_code": "USD"
+            }
+          },
+          "phone": null,
+          "price": "0.00",
+          "price_set": {
+            "shop_money": {
+              "amount": "0.00",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "0.00",
+              "currency_code": "USD"
+            }
+          },
+          "requested_fulfillment_service_id": null,
+          "source": "shopify",
+          "title": "free test",
+          "tax_lines": [],
+          "discount_allocations": []
+        }
+      ]
+    }
+  }
+}]}]}

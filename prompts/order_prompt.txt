@@ -1,0 +1,9 @@
+A customer is ordering one or more framed photos. There is an array of photos with keyword descriptors sorted by descending datetime in the format ["<photo_id>:<photo keyword descriptors>",...]. Extract the quantity of black and white frames desired for each photo. Return the quantities in the following format: <photo_id 1>:<black quantities 1>,<white quantities 1>|<photo_id 2>=<black quantities 2>,<white quantities 2>|... If a customer no longer wants a photo, set the quantities to 0. Below is an example.
+Photos: ["photo1: cat, bike, human", "photo2: human, mountain, car", "photo3: beach, human, bike"]
+Current Order: photo1=0,0|photo2=0,0|photo3=0,0
+Message: I'll take two of the first photo in black, one in white, and 3 of the third photo in black
+Order: photo1=2,1|photo2=0,0|photo3=3,0
+###
+Photos: ["photo1: dog, motorcycle, human", "photo2: cat, river, car", "photo3: desk, water bottle, chair"]
+Current Order: photo1=2,0|photo2=1,2|photo3=0,0
+Message:

@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,22 +7,67 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model customer {
-  number      String    @id
-  name        String?
-  email       String?
-  timezone    String?
-  most_recent DateTime? @db.Timestamptz
+model User {
+  number String  @id
+  name   String?
+  email  String?
+  order  String? @default("")
 }
 
-model messages {
-  id             Int       @id @default(autoincrement())
+enum MessageType {
+  order_placed
+  intro
+  help
+  order_quantity
+  checkout
+  new_order
+  customer_support
+  layered_image
+}
+
+model Message {
   content        String?
   media_url      String?
-  number         String?
-  date           DateTime? @db.Timestamptz
+  number         String
+  date           DateTime     @id @db.Timestamptz
   is_outbound    Boolean?
-  was_downgraded Boolean?  @default(false)
+  was_downgraded Boolean?     @default(false)
   send_style     String?
-  type           String?
+  type           MessageType?
+  response_time  Float?
+  // order          Order[]
+  // photo          Photo[]
 }
+
+// model Order {
+//   id          Int       @id
+//   order       String?
+//   number      String?
+//   customer_id String?
+//   date        DateTime? @db.Timestamptz
+//   status      String?
+//   total       Float?
+//   photos      Photo[]
+//   messages    Message[]
+// }
+
+// model Photo {
+//   id              Int          @id @default(autoincrement())
+//   number          String
+//   description     String?
+//   cloudinary_link String?
+//   cloudinary_path String?
+//   sendblue_link   String
+//   message         Message[]
+//   date            DateTime?    @db.Timestamptz
+//   ordered         Boolean?     @default(false)
+//   quantities      quantities[]
+//   orders          Order[]
+// }
+
+// model quantities {
+//   id     Int     @id @default(autoincrement())
+//   black  Int     @default(0)
+//   white  Int     @default(0)
+//   photos Photo[]
+// }
