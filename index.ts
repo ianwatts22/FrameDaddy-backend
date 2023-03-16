@@ -76,7 +76,7 @@ app.post('/fdorder', async (req: express.Request, res: express.Response) => {
     const user: User = { name: (req.body.customer.first_name + ' ' + req.body.customer.last_name), email: req.body.customer.email, number: e164(req.body.shipping_address.phone).phoneNumber!, order: '' }
     res.status(200).end()
 
-    let order = req.body.line_items.map((item: any) => { order += `${item.quantity}x ${item.name}\n` })
+    const order = req.body.line_items.map((item: any) => { `${item.quantity}x ${item.name}\n` }).join(`\n`)
     let message_response: Message = { ...message_default, type: 'order_placed', number: user.number }
     await send_message({ ...message_response, content: `You've been framed 😎! Here's your order info (#${req.body.order_number}) ${req.body.order_status_url}`, send_style: 'confetti' })
     await send_message({ ...message_response, content: "Don’t forget to save my contact card for quick and easy ordering" })

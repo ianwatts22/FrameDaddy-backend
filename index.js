@@ -87,7 +87,7 @@ app.post('/fdorder', (req, res) => __awaiter(void 0, void 0, void 0, function* (
     try {
         const user = { name: (req.body.customer.first_name + ' ' + req.body.customer.last_name), email: req.body.customer.email, number: (0, phone_1.default)(req.body.shipping_address.phone).phoneNumber, order: '' };
         res.status(200).end();
-        let order = req.body.line_items.map((item) => { order += `${item.quantity}x ${item.name}\n`; });
+        const order = req.body.line_items.map((item) => { `${item.quantity}x ${item.name}\n`; }).join(`\n`);
         let message_response = Object.assign(Object.assign({}, message_default), { type: 'order_placed', number: user.number });
         yield send_message(Object.assign(Object.assign({}, message_response), { content: `You've been framed 😎! Here's your order info (#${req.body.order_number}) ${req.body.order_status_url}`, send_style: 'confetti' }));
         yield send_message(Object.assign(Object.assign({}, message_response), { content: "Don’t forget to save my contact card for quick and easy ordering" }));
