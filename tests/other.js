@@ -1,10 +1,25 @@
-
-async function cloudinary() {
-  // cloudinary.image("v1677563149/FrameDaddy/vertical_template.png", {effect: "distort:150:340:1500:10:1500:1550:50:1000"}, 'v1677563149/FrameDaddy/vertical_template.png', {})  // ! not sure how to pass in two jawns
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+function cloudinary() {
+    return __awaiter(this, void 0, void 0, function* () {
+        // cloudinary.image("v1677563149/FrameDaddy/vertical_template.png", {effect: "distort:150:340:1500:10:1500:1550:50:1000"}, 'v1677563149/FrameDaddy/vertical_template.png', {})  // ! not sure how to pass in two jawns
+    });
 }
-
-// send_message({ content: '\nto talk to a team member text "support" followed by your problem (include image if applicable) \n\nhow does this work?\n - text a photo you want framed\n - photos can be portrait or landscape\n - photos are 5"x7" in black or white frames for $19.99\n - Adam and Alex lovingly handframe, package, and ship your photo from New York\n - text "referral" to get your referral code & instructions \n - frames have a hook and easel back to hang or stand\n - if you prefer, you can upload your photo to textframedaddy.com', number: message.number! })
-
+/* async function log_message(message: Message) {
+  const t0 = Date.now()
+  if (!message) { return }
+  const Coda_doc = await coda.getDoc(coda_doc), Coda_messages_table = await Coda_doc.getTable(coda_table)   // const Coda_messages_table = await coda.getTable('O7d9JvX0GY', 'grid-_14oaR8gdM')
+  const columns = await Coda_messages_table.listColumns(null)
+  // console.log(columns.map((column) => (column as {name: string}).name))
+} */
 /* async function layer_image(message: Message) {
   const options = {
     method: 'POST', url: 'https://mallabe.p.rapidapi.com/v1/images/metadata',
@@ -33,4 +48,4 @@ async function cloudinary() {
       return response.data.url
     })
     .catch(error => { console.error(error) })
-} */
+} */ 
