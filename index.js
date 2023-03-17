@@ -27,17 +27,13 @@ const coda_js_1 = require("coda-js");
 const pg_1 = require("pg");
 const client_1 = require("@prisma/client");
 require("@shopify/shopify-api/adapters/node");
-let hostname, link;
+let hostname = '0.0.0.0', link = 'https://framedaddy-backend.onrender.com', local = false;
 if (os_1.default.hostname().split('.').pop() === 'local')
-    hostname = '127.0.0.1', link = process.env.NGROK;
-else
-    hostname = '0.0.0.0', link = 'https://framedaddy-backend.onrender.com';
+    hostname = '127.0.0.1', link = process.env.NGROK, local = true;
 const PORT = Number(process.env.PORT), app = (0, express_1.default)();
 app.use(express_1.default.static('public')), app.use(express_1.default.urlencoded({ extended: true })), app.use(body_parser_1.default.json()), app.use((0, morgan_1.default)('dev')), app.use('/assets', express_1.default.static('assets'));
 app.listen(PORT, hostname, () => { console.log(`server at - http://${hostname}:${PORT}/`); });
-const sendblue = new sendblue_1.default(process.env.SENDBLUE_API_KEY, process.env.SENDBLUE_API_SECRET);
-const coda = new coda_js_1.Coda(process.env.CODA_API_KEY);
-const configuration = new openai_1.Configuration({ organization: process.env.OPENAI_ORGANIZATION, apiKey: process.env.OPENAI_API_KEY });
+const sendblue = new sendblue_1.default(process.env.SENDBLUE_API_KEY, process.env.SENDBLUE_API_SECRET), coda = new coda_js_1.Coda(process.env.CODA_API_KEY), configuration = new openai_1.Configuration({ organization: process.env.OPENAI_ORGANIZATION, apiKey: process.env.OPENAI_API_KEY });
 const openai = new openai_1.OpenAIApi(configuration);
 cloudinary_1.v2.config({ cloud_name: 'dpxdjc7qy', api_key: process.env.CLOUDINARY_API_KEY, api_secret: process.env.CLOUDINARY_API_SECRET, secure: true });
 let clientConfig; // need to pass ssl: true for external access
@@ -56,7 +52,7 @@ var AdminNumbers;
     AdminNumbers["Boser"] = "+17324035224";
 })(AdminNumbers || (AdminNumbers = {}));
 const admin_numbers = Object.values(AdminNumbers);
-const message_default = { content: null, number: '', type: null, is_outbound: null, date: new Date(), was_downgraded: null, media_url: null, send_style: null, response_time: null };
+const default_message = { content: null, number: '', type: null, is_outbound: null, date: new Date(), was_downgraded: null, media_url: null, send_style: null, response_time: null };
 const coda_doc_key = 'Wkshedo2Sb', coda_messages_key = 'grid-_v0sM6s7e1', coda_users_key = 'grid-VBi-mmgrKi';
 let users;
 local_data();
@@ -88,8 +84,8 @@ app.post('/fdorder', (req, res) => __awaiter(void 0, void 0, void 0, function* (
         const user = { name: (req.body.customer.first_name + ' ' + req.body.customer.last_name), email: req.body.customer.email, number: (0, phone_1.default)(req.body.shipping_address.phone).phoneNumber, order: '' };
         res.status(200).end();
         const order = req.body.line_items.map((item) => { `${item.quantity}x ${item.name}\n`; }).join(`\n`);
-        let message_response = Object.assign(Object.assign({}, message_default), { type: 'order_placed', number: user.number });
-        yield send_message(Object.assign(Object.assign({}, message_response), { content: `You've been framed 😎! Here's your order info (#${req.body.order_number}) ${req.body.order_status_url}`, send_style: 'confetti' }));
+        let message_response = Object.assign(Object.assign({}, default_message), { type: 'order_placed', number: user.number });
+        yield send_message(Object.assign(Object.assign({}, message_response), { content: `You've been framed 😎! Here's your order info (#${req.body.order_number}) ${req.body.order_status_url}`, send_style: client_1.SendStyle.confetti }));
         yield send_message(Object.assign(Object.assign({}, message_response), { content: "Don’t forget to save my contact card for quick and easy ordering" }));
         log_message(Object.assign(Object.assign({}, message_response), { content: `<order_placed:\n${order}>` }));
         yield prisma.user.upsert({
@@ -109,7 +105,7 @@ app.post('/fdshipped', (req, res) => __awaiter(void 0, void 0, void 0, function*
 }));
 app.post('/message', (req, res) => {
     try {
-        analyze_message(Object.assign(Object.assign({}, message_default), { content: req.body.content, media_url: req.body.media_url, number: req.body.number, was_downgraded: req.body.was_downgraded, is_outbound: false, date: new Date(req.body.date_sent) }));
+        analyze_message(Object.assign(Object.assign({}, default_message), { content: req.body.content, media_url: req.body.media_url, number: req.body.number, was_downgraded: req.body.was_downgraded, is_outbound: false, date: new Date(req.body.date_sent) }));
         res.status(200).end();
     }
     catch (e) {
@@ -130,19 +126,20 @@ app.post('/message-status', (req, res) => {
 // ======================================================================================
 // ========================================FUNCTIONS=====================================
 // ======================================================================================
-let help_prompt = fs_1.default.readFileSync('prompts/help_prompt.txt', 'utf8');
+const help_prompt = fs_1.default.readFileSync('prompts/help_prompt.txt', 'utf8');
+console.log(help_prompt);
 const job = new cron_1.default.CronJob('0 0 */1 * *', () => __awaiter(void 0, void 0, void 0, function* () { local_data(); }));
 job.start();
 const contact_card = `${link}/assets/FrameDaddy.vcf`;
 function analyze_message(message) {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d;
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const t0 = Date.now();
-            let message_response = Object.assign(Object.assign({}, message_default), { number: message.number });
+            let message_response = Object.assign(Object.assign({}, default_message), { number: message.number });
             // intro message
             if (!users.includes(message.number) || (admin_numbers.includes(message.number) && ((_a = message.content) === null || _a === void 0 ? void 0 : _a.toLowerCase()) == 'first')) {
-                const user = yield prisma.user.upsert({ where: { number: message.number }, update: {}, create: { number: message.number } });
+                const user = yield prisma.user.create({ data: { number: message.number } });
                 users.push(message.number);
                 yield send_message(Object.assign(Object.assign({}, message_response), { content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by ChatGPT so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: 'intro' }));
                 message.media_url ? yield layer_image(message, user) : yield send_message(Object.assign(Object.assign({}, message_response), { content: 'Send a photo to get started!' }));
@@ -162,10 +159,17 @@ function analyze_message(message) {
             }
             console.log(`${Date.now() - t0}ms - analyze_message user`);
             const previous_messages = yield get_previous_messages(message, 8);
-            const categories = [
-                "help", "order_quantity", "customer_support",
-                // "checkout", "new_order",
-            ];
+            let Categories;
+            (function (Categories) {
+                Categories["help"] = "help";
+                Categories["order_quantity"] = "order_quantity";
+                Categories["customer_support"] = "customer_support";
+                Categories["checkout"] = "checkout";
+                Categories["new_order"] = "new_order";
+            })(Categories || (Categories = {}));
+            let categories = [Categories.help, Categories.order_quantity, Categories.customer_support];
+            if (local)
+                categories.push(Categories.checkout, Categories.new_order);
             const categorize = yield openai.createCompletion({
                 model: 'text-davinci-003',
                 prompt: `
@@ -225,8 +229,11 @@ function analyze_message(message) {
                 yield send_message(Object.assign(Object.assign({}, message_response), { content: `Nice choice, I’ll get this shipped out ASAP. Click the link to checkout: https://textframedaddy.com/cart/43286555033836:${quantities[0]},43480829198572:${quantities[1]}` }));
             }
             else if (category == 'help') {
-                let prompt = `${help_prompt}\n###${previous_messages}\nCustomer: ${message.content}FrameDaddy:`, content, media_url;
-                let openAIResponse = yield openai.createCompletion({ max_tokens: 512, model: 'text-davinci-003', prompt: prompt, temperature: .5, presence_penalty: 0.7, frequency_penalty: 0.7, });
+                const prompt = `${help_prompt}\n###${previous_messages}\nCustomer: ${message.content}FrameDaddy:`;
+                let content, media_url, openAIResponse = yield openai.createCompletion({
+                    model: 'text-davinci-003', max_tokens: 512, temperature: .5, presence_penalty: .7, frequency_penalty: .7,
+                    prompt: prompt
+                });
                 openAIResponse = openAIResponse.data.choices[0].text;
                 if (openAIResponse.includes('media_url'))
                     content = openAIResponse.split('media_url:')[0], media_url = openAIResponse.split('media_url:')[1];
@@ -236,23 +243,21 @@ function analyze_message(message) {
                 yield send_message(Object.assign(Object.assign({}, message_response), { content: content, media_url: media_url }));
             }
             else if (category == 'new_order') {
-                yield send_message(Object.assign(Object.assign({}, message_response), { content: `starting a new order.` }));
-                yield log_message(message);
-                (_e = message.date) === null || _e === void 0 ? void 0 : _e.setSeconds(message.date.getSeconds() - 1);
-                log_message(Object.assign(Object.assign({}, message_response), { content: 'new_order', number: message.number, date: message.date, type: 'new_order' }));
+                yield send_message(Object.assign(Object.assign({}, message_response), { content: `Alright, new order started.`, type: category }));
             }
             else if (category == 'customer_support') {
                 send_message(Object.assign(Object.assign({}, message_response), { content: `Connecting you with a human, sorry for the trouble.`, type: category }));
                 sendblue.sendGroupMessage({ content: `SUPPORT (${message.number}\n${message.content}`, numbers: admin_numbers });
             }
             else if (category == 'checkout') {
-                if (!user.order) {
+                if (!user.order)
                     return;
-                }
                 const order = user.order.replace(/[^0-9,]/g, '').split('&&');
                 const links = order.map((order) => order.split('|')[0]), quantities = order.map((order) => order.split('|')[1]);
-                const black_quantities = order.map((quantities) => quantities.split(',')[0]);
-                const white_quantities = order.map((quantities) => quantities.split(',')[1]);
+                const black_quantities = order.map((quantities) => Number(quantities.split(',')[0]));
+                const white_quantities = order.map((quantities) => Number(quantities.split(',')[1]));
+                const white_total = white_quantities.reduce((total, current) => total + current, 0), black_total = black_quantities.reduce((total, current) => total + current, 0);
+                yield send_message(Object.assign(Object.assign({}, message_response), { content: `Nice choice, I’ll get this shipped out ASAP. Click the link to checkout: https://textframedaddy.com/cart/43286555033836:${black_total},43480829198572:${white_total}` }));
             }
             yield log_message(message);
         }
@@ -306,7 +311,7 @@ function layer_image(message, user) {
                   { if: "end" }
                 ] */
             });
-            let message_response = Object.assign(Object.assign({}, message_default), { number: user.number, type: client_1.MessageType.layered_image });
+            let message_response = Object.assign(Object.assign({}, default_message), { number: user.number, type: client_1.MessageType.layered_image });
             yield log_message(Object.assign(Object.assign({}, message), { media_url: data.url }));
             let orientation = data.exif.Orientation, width = data.width, height = data.height, ratio = data.width / data.height, path = `v${data.version}:${data.public_id.replace(/\//g, ':')}.${data.format}`;
             console.log(`path: ${path}`);
@@ -360,12 +365,6 @@ function log_message(message) {
             yield prisma.message.create({ data: message });
             const Coda_doc = yield coda.getDoc(coda_doc_key);
             const Coda_messages_table = yield Coda_doc.getTable(coda_messages_key);
-            // 'content',      'picture',
-            // 'received_PST', 'number',
-            // 'customer',     'Row ID',
-            // 'total',        'referral',
-            // 'test',         'media_url',
-            // 'is_outbound'
             yield Coda_messages_table.insertRows([{ content: message.content ? message.content : undefined, picture: message.media_url ? message.media_url : undefined, media_url: message.media_url ? message.media_url : undefined, number: message.number, received_PST: message.date, is_outbound: message.is_outbound ? message.is_outbound : undefined }]);
         }
         catch (e) {
@@ -374,7 +373,7 @@ function log_message(message) {
     });
 }
 function error_alert(error, message) {
-    return __awaiter(this, void 0, void 0, function* () { yield send_message(Object.assign(Object.assign({}, message_default), { content: `ERROR\n${error}`, number: AdminNumbers.Ian })); console.error(`ERROR: ${error}`); });
+    return __awaiter(this, void 0, void 0, function* () { yield send_message(Object.assign(Object.assign({}, default_message), { content: `ERROR\n${error}`, number: AdminNumbers.Ian })); console.error(`ERROR: ${error}`); });
 }
 // ======================================================================================
 // ========================================TESTING=======================================
@@ -397,22 +396,18 @@ draftOrderCreateMerchantCheckout: https://shopify.dev/docs/api/admin-graphql/202
   console.log(`product_update: ${Math.round(endTime - startTime)}ms`)
   console.log(`Sunday_products: ${Sunday_products}`)
 } */
-const abe = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Abraham_Lincoln_O-77_matte_collodion_print.jpg', sample_vertical = 'https://storage.googleapis.com/inbound-file-store/47yEEPvo_61175D25-640A-4EA4-A3A1-608BBBBD76DDIMG_2914.heic', sample_horizontal = 'https://storage.googleapis.com/inbound-file-store/1Nq7Sytl_01C13E5D-6496-4979-A236-EC2945A10D47.heic';
-let test_message = Object.assign(Object.assign({}, message_default), { content: 'test_message', number: '+13104974985', date: new Date(), media_url: sample_vertical });
+const sample_vertical = 'https://storage.googleapis.com/inbound-file-store/47yEEPvo_61175D25-640A-4EA4-A3A1-608BBBBD76DDIMG_2914.heic', sample_horizontal = 'https://storage.googleapis.com/inbound-file-store/1Nq7Sytl_01C13E5D-6496-4979-A236-EC2945A10D47.heic';
+let test_message = Object.assign(Object.assign({}, default_message), { content: 'test_message', number: '+13104974985', date: new Date(), media_url: sample_vertical });
 // test(test_message)
 function test(message, user) {
     return __awaiter(this, void 0, void 0, function* () {
-        // const message_default_coda = { content: undefined, number: '', type: undefined, is_outbound: undefined, date: new Date(), was_downgraded: undefined, media_url: undefined, send_style: undefined, response_time: undefined }
-        const Coda_doc = yield coda.getDoc(coda_doc_key);
-        const Coda_messages_table = yield Coda_doc.getTable(coda_messages_key);
-        // await Coda_messages_table.insertRows([{ content: message.content, picture: message.media_url, media_url: message.media_url, number: message.number, received_PST: message.date, is_outbound: message.is_outbound }])
-        const coda_message = yield Coda_messages_table.insertRows([{ content: undefined, picture: undefined, media_url: undefined, number: undefined, received_PST: new Date(), is_outbound: undefined }]);
-        // 'content',      'picture',
-        // 'received_PST', 'phone',
-        // 'UUID',         'customer',
-        // 'media',     
-        // 'referral',     'test',
-        // 'picture_url',  'is_outbound'
-        // console.log(`coda_message: ${coda_message}`)
+    });
+}
+// data_sync()
+function data_sync() {
+    return __awaiter(this, void 0, void 0, function* () {
+        setTimeout(() => __awaiter(this, void 0, void 0, function* () {
+            users.forEach((user) => __awaiter(this, void 0, void 0, function* () { yield prisma.user.upsert({ where: { number: user }, update: { number: user }, create: { number: user } }); }));
+        }), 10000);
     });
 }

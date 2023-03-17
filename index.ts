@@ -14,21 +14,18 @@ import { v2 as cloudinary } from 'cloudinary'
 import { Configuration, OpenAIApi } from "openai"
 import { Coda } from 'coda-js'
 import { Client, ClientConfig } from 'pg'
-import { Prisma, PrismaClient, User, Message, MessageType } from '@prisma/client'
+import { Prisma, PrismaClient, User, Message, MessageType, SendStyle } from '@prisma/client'
 import '@shopify/shopify-api/adapters/node';
 import { shopifyApi, LATEST_API_VERSION, Session } from "@shopify/shopify-api"
 import { Table } from 'coda-js/build/models'
 
-let hostname: string, link: string
-if (os.hostname().split('.').pop() === 'local') hostname = '127.0.0.1', link = process.env.NGROK!
-else hostname = '0.0.0.0', link = 'https://framedaddy-backend.onrender.com'
+let hostname = '0.0.0.0', link = 'https://framedaddy-backend.onrender.com', local = false
+if (os.hostname().split('.').pop() === 'local') hostname = '127.0.0.1', link = process.env.NGROK!, local = true
 const PORT = Number(process.env.PORT), app = express()
 app.use(express.static('public')), app.use(express.urlencoded({ extended: true })), app.use(bodyParser.json()), app.use(morgan('dev')), app.use('/assets', express.static('assets'))
 app.listen(PORT, hostname, () => { console.log(`server at - http://${hostname}:${PORT}/`) })
 
-const sendblue = new Sendblue(process.env.SENDBLUE_API_KEY!, process.env.SENDBLUE_API_SECRET!)
-const coda = new Coda(process.env.CODA_API_KEY!)
-const configuration = new Configuration({ organization: process.env.OPENAI_ORGANIZATION, apiKey: process.env.OPENAI_API_KEY })
+const sendblue = new Sendblue(process.env.SENDBLUE_API_KEY!, process.env.SENDBLUE_API_SECRET!), coda = new Coda(process.env.CODA_API_KEY!), configuration = new Configuration({ organization: process.env.OPENAI_ORGANIZATION, apiKey: process.env.OPENAI_API_KEY })
 const openai = new OpenAIApi(configuration)
 cloudinary.config({ cloud_name: 'dpxdjc7qy', api_key: process.env.CLOUDINARY_API_KEY, api_secret: process.env.CLOUDINARY_API_SECRET, secure: true })
 
@@ -44,7 +41,7 @@ client.connect()
 enum AdminNumbers { Ian = '+13104974985', Adam = '+19165919394', Corn = '+19498702865', Lubin = '+16143019108', Boser = '+17324035224', }
 const admin_numbers: string[] = Object.values(AdminNumbers)
 
-const message_default: Message = { content: null, number: '', type: null, is_outbound: null, date: new Date(), was_downgraded: null, media_url: null, send_style: null, response_time: null }
+const default_message: Message = { content: null, number: '', type: null, is_outbound: null, date: new Date(), was_downgraded: null, media_url: null, send_style: null, response_time: null }
 
 const coda_doc_key = 'Wkshedo2Sb', coda_messages_key = 'grid-_v0sM6s7e1', coda_users_key = 'grid-VBi-mmgrKi'
 
@@ -77,8 +74,8 @@ app.post('/fdorder', async (req: express.Request, res: express.Response) => {
     res.status(200).end()
 
     const order = req.body.line_items.map((item: any) => { `${item.quantity}x ${item.name}\n` }).join(`\n`)
-    let message_response: Message = { ...message_default, type: 'order_placed', number: user.number }
-    await send_message({ ...message_response, content: `You've been framed 😎! Here's your order info (#${req.body.order_number}) ${req.body.order_status_url}`, send_style: 'confetti' })
+    let message_response: Message = { ...default_message, type: 'order_placed', number: user.number }
+    await send_message({ ...message_response, content: `You've been framed 😎! Here's your order info (#${req.body.order_number}) ${req.body.order_status_url}`, send_style: SendStyle.confetti })
     await send_message({ ...message_response, content: "Don’t forget to save my contact card for quick and easy ordering" })
     log_message({ ...message_response, content: `<order_placed:\n${order}>` })
 
@@ -97,7 +94,7 @@ app.post('/fdshipped', async (req: express.Request, res: express.Response) => {
 
 app.post('/message', (req: express.Request, res: express.Response) => {
   try {
-    analyze_message({ ...message_default, content: req.body.content, media_url: req.body.media_url, number: req.body.number, was_downgraded: req.body.was_downgraded, is_outbound: false, date: new Date(req.body.date_sent) })
+    analyze_message({ ...default_message, content: req.body.content, media_url: req.body.media_url, number: req.body.number, was_downgraded: req.body.was_downgraded, is_outbound: false, date: new Date(req.body.date_sent) })
     res.status(200).end()
   } catch (e) { res.status(500).end(); error_alert(e) }
 })
@@ -109,7 +106,8 @@ app.post('/message-status', (req: express.Request, res: express.Response) => {
 // ========================================FUNCTIONS=====================================
 // ======================================================================================
 
-let help_prompt = fs.readFileSync('prompts/help_prompt.txt', 'utf8')
+const help_prompt = fs.readFileSync('prompts/help_prompt.txt', 'utf8')
+console.log(help_prompt)
 
 const job = new cron.CronJob('0 0 */1 * *', async () => { local_data() })
 job.start()
@@ -118,10 +116,10 @@ const contact_card = `${link}/assets/FrameDaddy.vcf`
 async function analyze_message(message: Message) {
   try {
     const t0 = Date.now()
-    let message_response: Message = { ...message_default, number: message.number }
+    let message_response: Message = { ...default_message, number: message.number }
     // intro message
     if (!users.includes(message.number) || (admin_numbers.includes(message.number) && message.content?.toLowerCase() == 'first')) {
-      const user = await prisma.user.upsert({ where: { number: message.number }, update: { }, create: { number: message.number } })
+      const user = await prisma.user.create({ data: { number: message.number } })
       users.push(message.number)
 
       await send_message({ ...message_response, content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by ChatGPT so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: 'intro' })
@@ -130,6 +128,7 @@ async function analyze_message(message: Message) {
       return
     }
     if (message.content?.toLowerCase().startsWith('reset')) { return }  // reset
+
     const user = await prisma.user.findUnique({ where: { number: message.number } })
     if (!user) { error_alert('NO USER ERROR'); return }
 
@@ -139,10 +138,12 @@ async function analyze_message(message: Message) {
     console.log(`${Date.now() - t0}ms - analyze_message user`)
     const previous_messages = await get_previous_messages(message, 8)
 
-    const categories = [
-      "help", "order_quantity", "customer_support",
-      // "checkout", "new_order",
-    ]
+    enum Categories {
+      help = "help", order_quantity = "order_quantity", customer_support = "customer_support",
+      checkout = "checkout", new_order = "new_order"
+    }
+    let categories: string[] = [Categories.help, Categories.order_quantity, Categories.customer_support]
+    if (local) categories.push(Categories.checkout, Categories.new_order)
     const categorize = await openai.createCompletion({
       model: 'text-davinci-003',
       prompt: `
@@ -206,31 +207,33 @@ async function analyze_message(message: Message) {
 
       await send_message({ ...message_response, content: `Nice choice, I’ll get this shipped out ASAP. Click the link to checkout: https://textframedaddy.com/cart/43286555033836:${quantities![0]},43480829198572:${quantities![1]}` })
     } else if (category == 'help') {
-      let prompt = `${help_prompt}\n###${previous_messages}\nCustomer: ${message.content}FrameDaddy:`, content, media_url
-
-      let openAIResponse: any = await openai.createCompletion({ max_tokens: 512, model: 'text-davinci-003', prompt: prompt, temperature: .5, presence_penalty: 0.7, frequency_penalty: 0.7, })
+      const prompt = `${help_prompt}\n###${previous_messages}\nCustomer: ${message.content}FrameDaddy:`
+      let content, media_url, openAIResponse: any = await openai.createCompletion({
+        model: 'text-davinci-003', max_tokens: 512, temperature: .5, presence_penalty: .7, frequency_penalty: .7,
+        prompt: prompt
+      })
       openAIResponse = openAIResponse.data.choices[0].text
       if (openAIResponse.includes('media_url')) content = openAIResponse.split('media_url:')[0], media_url = openAIResponse.split('media_url:')[1]
       else content = openAIResponse
 
       console.log(prompt + content)
-
       await send_message({ ...message_response, content: content, media_url: media_url })
     } else if (category == 'new_order') {
-      await send_message({ ...message_response, content: `starting a new order.` })
-      await log_message(message)
-      message.date?.setSeconds(message.date.getSeconds() - 1)
-      log_message({ ...message_response, content: 'new_order', number: message.number, date: message.date, type: 'new_order' })
+      await send_message({ ...message_response, content: `Alright, new order started.`, type: category })
     } else if (category == 'customer_support') {
       send_message({ ...message_response, content: `Connecting you with a human, sorry for the trouble.`, type: category })
       sendblue.sendGroupMessage({ content: `SUPPORT (${message.number}\n${message.content}`, numbers: admin_numbers })
     } else if (category == 'checkout') {
 
-      if (!user.order) { return }
+      if (!user.order) return
       const order = user.order.replace(/[^0-9,]/g, '').split('&&')
       const links = order.map((order: string) => order.split('|')[0]), quantities = order.map((order: string) => order.split('|')[1])
-      const black_quantities = order.map((quantities: string) => quantities.split(',')[0])
-      const white_quantities = order.map((quantities: string) => quantities.split(',')[1])
+      const black_quantities = order.map((quantities: string) => Number(quantities.split(',')[0]))
+      const white_quantities = order.map((quantities: string) => Number(quantities.split(',')[1]))
+      const white_total = white_quantities.reduce((total, current) => total + current, 0), black_total = black_quantities.reduce((total, current) => total + current, 0)
+
+      await send_message({ ...message_response, content: `Nice choice, I’ll get this shipped out ASAP. Click the link to checkout: https://textframedaddy.com/cart/43286555033836:${black_total},43480829198572:${white_total}` })
+
     }
     await log_message(message)
   } catch (e) { error_alert(e) }
@@ -278,7 +281,7 @@ async function layer_image(message: Message, user: User) {
         { if: "end" }
       ] */
     })
-    let message_response: Message = { ...message_default, number: user.number, type: MessageType.layered_image }
+    let message_response: Message = { ...default_message, number: user.number, type: MessageType.layered_image }
     await log_message({ ...message, media_url: data.url })
 
     let orientation = data.exif.Orientation, width = data.width, height = data.height, ratio = data.width / data.height, path = `v${data.version}:${data.public_id.replace(/\//g, ':')}.${data.format}`
@@ -327,19 +330,11 @@ async function log_message(message: Message) {
     await prisma.message.create({ data: message })
     const Coda_doc = await coda.getDoc(coda_doc_key)
     const Coda_messages_table = await Coda_doc.getTable(coda_messages_key)
-
-  // 'content',      'picture',
-  // 'received_PST', 'number',
-  // 'customer',     'Row ID',
-  // 'total',        'referral',
-  // 'test',         'media_url',
-  // 'is_outbound'
-
-    await Coda_messages_table.insertRows([{ content: message.content ? message.content : undefined, picture: message.media_url ? message.media_url : undefined, media_url: message.media_url ? message.media_url : undefined, number: message.number, received_PST: message.date,is_outbound: message.is_outbound ? message.is_outbound : undefined }])
+    await Coda_messages_table.insertRows([{ content: message.content ? message.content : undefined, picture: message.media_url ? message.media_url : undefined, media_url: message.media_url ? message.media_url : undefined, number: message.number, received_PST: message.date, is_outbound: message.is_outbound ? message.is_outbound : undefined }])
   } catch (e) { console.log(e) }
 }
 
-async function error_alert(error: any, message?: Message) { await send_message({ ...message_default, content: `ERROR\n${error}`, number: AdminNumbers.Ian }); console.error(`ERROR: ${error}`) }
+async function error_alert(error: any, message?: Message) { await send_message({ ...default_message, content: `ERROR\n${error}`, number: AdminNumbers.Ian }); console.error(`ERROR: ${error}`) }
 
 // ======================================================================================
 // ========================================TESTING=======================================
@@ -365,25 +360,17 @@ draftOrderCreateMerchantCheckout: https://shopify.dev/docs/api/admin-graphql/202
   console.log(`Sunday_products: ${Sunday_products}`)
 } */
 
-const abe = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Abraham_Lincoln_O-77_matte_collodion_print.jpg', sample_vertical = 'https://storage.googleapis.com/inbound-file-store/47yEEPvo_61175D25-640A-4EA4-A3A1-608BBBBD76DDIMG_2914.heic', sample_horizontal = 'https://storage.googleapis.com/inbound-file-store/1Nq7Sytl_01C13E5D-6496-4979-A236-EC2945A10D47.heic'
-let test_message: Message = { ...message_default, content: 'test_message', number: '+13104974985', date: new Date(), media_url: sample_vertical }
+const sample_vertical = 'https://storage.googleapis.com/inbound-file-store/47yEEPvo_61175D25-640A-4EA4-A3A1-608BBBBD76DDIMG_2914.heic', sample_horizontal = 'https://storage.googleapis.com/inbound-file-store/1Nq7Sytl_01C13E5D-6496-4979-A236-EC2945A10D47.heic'
+let test_message: Message = { ...default_message, content: 'test_message', number: '+13104974985', date: new Date(), media_url: sample_vertical }
 
 // test(test_message)
 async function test(message: Message, user?: User) {
-  // const message_default_coda = { content: undefined, number: '', type: undefined, is_outbound: undefined, date: new Date(), was_downgraded: undefined, media_url: undefined, send_style: undefined, response_time: undefined }
+  
+}
 
-  const Coda_doc = await coda.getDoc(coda_doc_key)
-  const Coda_messages_table = await Coda_doc.getTable(coda_messages_key)
-  // await Coda_messages_table.insertRows([{ content: message.content, picture: message.media_url, media_url: message.media_url, number: message.number, received_PST: message.date, is_outbound: message.is_outbound }])
-
-  const coda_message = await Coda_messages_table.insertRows([{ content: undefined, picture: undefined, media_url: undefined, number: undefined, received_PST: new Date(), is_outbound: undefined }])
-
-
-  // 'content',      'picture',
-  // 'received_PST', 'phone',
-  // 'UUID',         'customer',
-  // 'media',     
-  // 'referral',     'test',
-  // 'picture_url',  'is_outbound'
-  // console.log(`coda_message: ${coda_message}`)
+// data_sync()
+async function data_sync() {
+  setTimeout(async () => {
+    users.forEach(async (user) => { await prisma.user.upsert({ where: { number: user }, update: { number: user }, create: { number: user } }) })
+  }, 10000)
 }

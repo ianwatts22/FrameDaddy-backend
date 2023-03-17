@@ -14,6 +14,18 @@ model User {
   order  String? @default("")
 }
 
+model Message {
+  content        String?
+  media_url      String?
+  number         String
+  date           DateTime     @id @db.Timestamptz
+  is_outbound    Boolean?
+  was_downgraded Boolean?     @default(false)
+  send_style     SendStyle?
+  type           MessageType?
+  response_time  Float?
+}
+
 enum MessageType {
   order_placed
   intro
@@ -25,49 +37,18 @@ enum MessageType {
   layered_image
 }
 
-model Message {
-  content        String?
-  media_url      String?
-  number         String
-  date           DateTime     @id @db.Timestamptz
-  is_outbound    Boolean?
-  was_downgraded Boolean?     @default(false)
-  send_style     String?
-  type           MessageType?
-  response_time  Float?
-  // order          Order[]
-  // photo          Photo[]
+enum SendStyle {
+  celebration
+  shooting_star
+  fireworks
+  lasers
+  love
+  confetti
+  balloons
+  spotlight
+  echo
+  invisible
+  gentle
+  loud
+  slam
 }
-
-// model Order {
-//   id          Int       @id
-//   order       String?
-//   number      String?
-//   customer_id String?
-//   date        DateTime? @db.Timestamptz
-//   status      String?
-//   total       Float?
-//   photos      Photo[]
-//   messages    Message[]
-// }
-
-// model Photo {
-//   id              Int          @id @default(autoincrement())
-//   number          String
-//   description     String?
-//   cloudinary_link String?
-//   cloudinary_path String?
-//   sendblue_link   String
-//   message         Message[]
-//   date            DateTime?    @db.Timestamptz
-//   ordered         Boolean?     @default(false)
-//   quantities      quantities[]
-//   orders          Order[]
-// }
-
-// model quantities {
-//   id     Int     @id @default(autoincrement())
-//   black  Int     @default(0)
-//   white  Int     @default(0)
-//   photos Photo[]
-// }
