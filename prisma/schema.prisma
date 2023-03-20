@@ -35,6 +35,8 @@ enum MessageType {
   new_order
   customer_support
   layered_image
+  announcement
+  unsubscribe
 }
 
 enum SendStyle {

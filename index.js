@@ -52,9 +52,12 @@ var AdminNumbers;
     AdminNumbers["Boser"] = "+17324035224";
 })(AdminNumbers || (AdminNumbers = {}));
 const admin_numbers = Object.values(AdminNumbers);
+const sendblue_callback = `${link}/message-status`;
 const default_message = { content: null, number: '', type: null, is_outbound: null, date: new Date(), was_downgraded: null, media_url: null, send_style: null, response_time: null };
 const coda_doc_key = 'Wkshedo2Sb', coda_messages_key = 'grid-_v0sM6s7e1', coda_users_key = 'grid-VBi-mmgrKi';
 let users;
+let users_test = ['+13104974985', '+19165919394'];
+// send_message({ ...default_message, content: 'FrameDaddy admin: test !' }, users_test)
 local_data();
 function local_data() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -87,7 +90,7 @@ app.post('/fdorder', (req, res) => __awaiter(void 0, void 0, void 0, function* (
         let message_response = Object.assign(Object.assign({}, default_message), { type: 'order_placed', number: user.number });
         yield send_message(Object.assign(Object.assign({}, message_response), { content: `You've been framed 😎! Here's your order info (#${req.body.order_number}) ${req.body.order_status_url}`, send_style: client_1.SendStyle.confetti }));
         yield send_message(Object.assign(Object.assign({}, message_response), { content: "Don’t forget to save my contact card for quick and easy ordering" }));
-        log_message(Object.assign(Object.assign({}, message_response), { content: `<order_placed:\n${order}>` }));
+        yield log_message(Object.assign(Object.assign({}, message_response), { content: `<order_placed:\n${order}>` }));
         yield prisma.user.upsert({
             where: { number: user.number },
             update: { name: user.name, email: user.email, order: '' },
@@ -127,19 +130,19 @@ app.post('/message-status', (req, res) => {
 // ========================================FUNCTIONS=====================================
 // ======================================================================================
 const help_prompt = fs_1.default.readFileSync('prompts/help_prompt.txt', 'utf8');
-console.log(help_prompt);
 const job = new cron_1.default.CronJob('0 0 */1 * *', () => __awaiter(void 0, void 0, void 0, function* () { local_data(); }));
 job.start();
 const contact_card = `${link}/assets/FrameDaddy.vcf`;
 function analyze_message(message) {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e;
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const t0 = Date.now();
             let message_response = Object.assign(Object.assign({}, default_message), { number: message.number });
             // intro message
-            if (!users.includes(message.number) || (admin_numbers.includes(message.number) && ((_a = message.content) === null || _a === void 0 ? void 0 : _a.toLowerCase()) == 'first')) {
-                const user = yield prisma.user.create({ data: { number: message.number } });
+            if (!users.includes(message.number) || (admin_numbers.includes(message.number) && ((_a = message.content) === null || _a === void 0 ? void 0 : _a.toLowerCase().startsWith('first')))) {
+                // const user = await prisma.user.create({ data: { number: message.number } })
+                const user = yield prisma.user.upsert({ where: { number: message.number }, update: {}, create: { number: message.number } });
                 users.push(message.number);
                 yield send_message(Object.assign(Object.assign({}, message_response), { content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by ChatGPT so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: 'intro' }));
                 message.media_url ? yield layer_image(message, user) : yield send_message(Object.assign(Object.assign({}, message_response), { content: 'Send a photo to get started!' }));
@@ -157,23 +160,21 @@ function analyze_message(message) {
                 yield layer_image(message, user);
                 return;
             }
+            else if (((_c = message.content) === null || _c === void 0 ? void 0 : _c.toLowerCase().includes('admin:')) && admin_numbers.includes(message.number)) {
+                console.log(`admin: ${Date.now() - t0}ms`);
+                yield send_message(Object.assign(Object.assign({}, default_message), { content: message.content.split(':').pop(), media_url: message.media_url, type: client_1.MessageType.announcement }), users_test);
+                return;
+                // await send_message({ ...default_message, content: message.content.split(':').pop()!, media_url: message.media_url, type: MessageType.announcement }, users); return
+            }
             console.log(`${Date.now() - t0}ms - analyze_message user`);
             const previous_messages = yield get_previous_messages(message, 8);
-            let Categories;
-            (function (Categories) {
-                Categories["help"] = "help";
-                Categories["order_quantity"] = "order_quantity";
-                Categories["customer_support"] = "customer_support";
-                Categories["checkout"] = "checkout";
-                Categories["new_order"] = "new_order";
-            })(Categories || (Categories = {}));
-            let categories = [Categories.help, Categories.order_quantity, Categories.customer_support];
+            let categories = [client_1.MessageType.help, client_1.MessageType.order_quantity, client_1.MessageType.customer_support, client_1.MessageType.unsubscribe];
             if (local)
-                categories.push(Categories.checkout, Categories.new_order);
+                categories.push(client_1.MessageType.checkout, client_1.MessageType.new_order);
             const categorize = yield openai.createCompletion({
                 model: 'text-davinci-003',
                 prompt: `
-      Categorize the following text into one of the following: [${categories}]. "checkout" is when for when the customer no longer wants to send photos and is checkout ou. "new_order" is when they say they want to start a new order. "customer_support" if they want to speak to a representative or you can't help them. If you are unsure, go with help. Example:
+      Categorize the following text into one of the following: [${categories}]. The default is "help". "customer_support" if they want to speak to a representative or you can't help them. If you are unsure, go with help. Example:
       Text: I'll take 2 white frames and three black
       Category: order_quantity
       Text: how does this work and how much do the frames cost?
@@ -189,9 +190,9 @@ function analyze_message(message) {
       ${previous_messages}
       ###
       Text: ${message.content}
-      Category:`
+      Category:` /*  "checkout" is when for when the customer no longer wants to send photos and is checkout out. "new_order" is when they say they want to start a new order. */
             });
-            const category = (_c = categorize.data.choices[0].text) === null || _c === void 0 ? void 0 : _c.toLowerCase().replace(/\s+/g, "");
+            const category = (_d = categorize.data.choices[0].text) === null || _d === void 0 ? void 0 : _d.toLowerCase().replace(/\s+/g, "");
             console.log(`${Date.now() - t0}ms - /analyze_message - categorize (${category})`);
             // cateogrization error
             if (!category || !categories.includes(category)) {
@@ -212,7 +213,7 @@ function analyze_message(message) {
               Order:
               `
             }) */
-            if (category == 'order_quantity') {
+            if (category == client_1.MessageType.order_quantity) {
                 let openAIResponse = yield openai.createCompletion({
                     model: 'text-davinci-003', temperature: 0.5, max_tokens: 256,
                     prompt: `A customer is ordering one or more framed photo. Extract the quantity of black and white frames desired from their message. Return the quantities in the following format: <black quantities>,<white quantities>
@@ -225,15 +226,16 @@ function analyze_message(message) {
         Values:`
                 });
                 // remove blank space from response, split into array
-                const quantities = (_d = openAIResponse.data.choices[0].text) === null || _d === void 0 ? void 0 : _d.toString().replace(/[^0-9,]/g, '').split(',');
+                const quantities = (_e = openAIResponse.data.choices[0].text) === null || _e === void 0 ? void 0 : _e.toString().replace(/[^0-9,]/g, '').split(',');
                 yield send_message(Object.assign(Object.assign({}, message_response), { content: `Nice choice, I’ll get this shipped out ASAP. Click the link to checkout: https://textframedaddy.com/cart/43286555033836:${quantities[0]},43480829198572:${quantities[1]}` }));
             }
-            else if (category == 'help') {
-                const prompt = `${help_prompt}\n###${previous_messages}\nCustomer: ${message.content}FrameDaddy:`;
-                let content, media_url, openAIResponse = yield openai.createCompletion({
-                    model: 'text-davinci-003', max_tokens: 512, temperature: .5, presence_penalty: .7, frequency_penalty: .7,
-                    prompt: prompt
-                });
+            else if (category == client_1.MessageType.help) {
+                const prompt = `${help_prompt}
+      ###
+      ${previous_messages}
+      Customer: ${message.content}
+      FrameDaddy:`;
+                let content, media_url, openAIResponse = yield openai.createCompletion({ model: 'text-davinci-003', max_tokens: 512, temperature: .5, presence_penalty: .7, frequency_penalty: .7, prompt: prompt });
                 openAIResponse = openAIResponse.data.choices[0].text;
                 if (openAIResponse.includes('media_url'))
                     content = openAIResponse.split('media_url:')[0], media_url = openAIResponse.split('media_url:')[1];
@@ -242,14 +244,14 @@ function analyze_message(message) {
                 console.log(prompt + content);
                 yield send_message(Object.assign(Object.assign({}, message_response), { content: content, media_url: media_url }));
             }
-            else if (category == 'new_order') {
-                yield send_message(Object.assign(Object.assign({}, message_response), { content: `Alright, new order started.`, type: category }));
-            }
-            else if (category == 'customer_support') {
+            else if (category == client_1.MessageType.customer_support) {
                 send_message(Object.assign(Object.assign({}, message_response), { content: `Connecting you with a human, sorry for the trouble.`, type: category }));
                 sendblue.sendGroupMessage({ content: `SUPPORT (${message.number}\n${message.content}`, numbers: admin_numbers });
             }
-            else if (category == 'checkout') {
+            else if (category == client_1.MessageType.new_order) {
+                yield send_message(Object.assign(Object.assign({}, message_response), { content: `Alright, new order started.`, type: category }));
+            }
+            else if (category == client_1.MessageType.checkout) {
                 if (!user.order)
                     return;
                 const order = user.order.replace(/[^0-9,]/g, '').split('&&');
@@ -258,6 +260,16 @@ function analyze_message(message) {
                 const white_quantities = order.map((quantities) => Number(quantities.split(',')[1]));
                 const white_total = white_quantities.reduce((total, current) => total + current, 0), black_total = black_quantities.reduce((total, current) => total + current, 0);
                 yield send_message(Object.assign(Object.assign({}, message_response), { content: `Nice choice, I’ll get this shipped out ASAP. Click the link to checkout: https://textframedaddy.com/cart/43286555033836:${black_total},43480829198572:${white_total}` }));
+            }
+            else if (category == client_1.MessageType.unsubscribe) {
+                const Coda_doc = yield coda.getDoc(coda_doc_key);
+                const Coda_users_table = yield Coda_doc.getTable(coda_users_key);
+                const Coda_user_rows = yield Coda_users_table.listRows({ useColumnNames: true });
+                const Coda_user = Coda_user_rows.find(row => row.values.phone == message.number);
+                if (Coda_user)
+                    yield Coda_users_table.deleteRow(Coda_user.id);
+                send_message(Object.assign(Object.assign({}, message_response), { content: `Sorry to see you go. Text this number again anytime if you wanna continue`, type: category }));
+                yield prisma.user.delete({ where: { number: message.number } });
             }
             yield log_message(message);
         }
@@ -294,7 +306,6 @@ function get_previous_messages(message, amount = 14) {
         return previous_messages_string;
     });
 }
-// sendblue.sendGroupMessage({ content: `testing Sendblue group message`, numbers: admin_numbers })
 function layer_image(message, user) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
@@ -329,7 +340,7 @@ function layer_image(message, user) {
                 // const image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/q_60/u_${path}/c_fill,g_auto,ar_${ar}/e_distort:${distort[0]}/fl_layer_apply,g_north_west,x_0,y_0/u_${path}/c_fill,g_auto,ar_${ar}/e_distort:${distort[1]}/fl_layer_apply,g_north_west,x_0,y_0/c_crop,g_north_west,h_${background_crop[1]},w_${background_crop[0]}//FrameDaddy/assets/double_${setup}.jpg`
                 console.log(`image: ${image}`);
                 yield send_message(Object.assign(Object.assign({}, message_response), { media_url: image }));
-                send_message(Object.assign(Object.assign({}, message_response), { content: `How many of each color frame do you want?` }));
+                send_message(Object.assign(Object.assign({}, message_response), { content: `How many frames would you like, and in what color(s)? i.e. 1 black, 1 white` }));
                 // if (user.order == '') send_message({ ...message_response, content: `If you want more photos framed keep em coming, otherwise let me know when you want to checkout` })
                 const image_mod = yield cloudinary_1.v2.image(public_id, { gravity: "auto", aspect_ratio: ar, crop: "fill" });
                 console.log(`image_mod: ${image_mod}`);
@@ -341,18 +352,23 @@ function layer_image(message, user) {
         }
     });
 }
-function send_message(message) {
+function send_message(message, numbers) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const t0 = Date.now();
-            if (message) {
-                message.date = new Date(), message.is_outbound = true;
-                if (message.response_time)
-                    message.response_time = (new Date().valueOf() - message.response_time.valueOf()) / 1000;
-                yield sendblue.sendMessage({ content: message.content ? message.content : undefined, number: message.number, send_style: message.send_style ? message.send_style : undefined, media_url: message.media_url ? message.media_url : undefined, status_callback: `${link}/message-status` });
-                console.log(`${message.response_time}s - send_message: (${message.number}) ${message.content} (${message.media_url})`);
-                yield log_message(message);
+            message.date = new Date(), message.is_outbound = true;
+            if (message.response_time)
+                message.response_time = Number(message.date.valueOf() - message.response_time) / 1000;
+            console.log(message.response_time);
+            if (numbers) {
+                for (const number of numbers) {
+                    yield sendblue.sendMessage({ content: message.content ? message.content : undefined, number: number, send_style: message.send_style ? message.send_style : undefined, media_url: message.media_url ? message.media_url : undefined, status_callback: sendblue_callback });
+                }
             }
+            else {
+                yield sendblue.sendMessage({ content: message.content ? message.content : undefined, number: message.number, send_style: message.send_style ? message.send_style : undefined, media_url: message.media_url ? message.media_url : undefined, status_callback: sendblue_callback });
+            }
+            console.log(`${Date.now() - message.date.valueOf()}ms - send_message`);
+            yield log_message(message);
         }
         catch (e) {
             error_alert(e);
@@ -398,8 +414,9 @@ draftOrderCreateMerchantCheckout: https://shopify.dev/docs/api/admin-graphql/202
 } */
 const sample_vertical = 'https://storage.googleapis.com/inbound-file-store/47yEEPvo_61175D25-640A-4EA4-A3A1-608BBBBD76DDIMG_2914.heic', sample_horizontal = 'https://storage.googleapis.com/inbound-file-store/1Nq7Sytl_01C13E5D-6496-4979-A236-EC2945A10D47.heic';
 let test_message = Object.assign(Object.assign({}, default_message), { content: 'test_message', number: '+13104974985', date: new Date(), media_url: sample_vertical });
+let test_user = { number: '+13104974985', email: 'ianwatts22@gmail.com', name: 'Ian Watts', order: '' };
 // test(test_message)
-function test(message, user) {
+function test(message, user, string) {
     return __awaiter(this, void 0, void 0, function* () {
     });
 }
