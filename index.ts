@@ -43,6 +43,7 @@ const admin_numbers: string[] = Object.values(AdminNumbers)
 const sendblue_callback = `${link}/message-status`
 
 const default_message: Message = { content: null, number: '', type: null, is_outbound: null, date: new Date(), was_downgraded: null, media_url: null, send_style: null, response_time: null }
+const default_user: User = { number: '', name: null, email: null, order: null }
 
 const coda_doc_key = 'Wkshedo2Sb', coda_messages_key = 'grid-_v0sM6s7e1', coda_users_key = 'grid-VBi-mmgrKi'
 
@@ -55,10 +56,10 @@ async function local_data() {
     const Coda_doc = await coda.getDoc(coda_doc_key); // const Coda_tables = await Coda_doc.listTables()
     const Coda_users_table = await Coda_doc.getTable(coda_users_key)
     const Coda_user_rows = await Coda_users_table.listRows({ useColumnNames: true })
-    users = Coda_user_rows.map((row: any) => (((row as { values: Object }).values) as { phone: string }).phone)
+    users = Coda_user_rows.map((row: any) => (((row as { values: Object }).values) as { number: string }).number)
     const Coda_messages_table = await Coda_doc.getTable(coda_messages_key)
     const Coda_messages_rows = await Coda_messages_table.listRows({ useColumnNames: true })
-    let messages = Coda_messages_rows.map((row: any) => (((row as { values: Object }).values) as { phone: string }).phone)
+    let messages = Coda_messages_rows.map((row: any) => (((row as { values: Object }).values) as { number: string }).number)
     const columns = await Coda_messages_table.listColumns(null)
     // console.log(columns.map((column) => (column as { name: string }).name))
 
@@ -121,13 +122,11 @@ async function analyze_message(message: Message) {
     let message_response: Message = { ...default_message, number: message.number }
     // intro message
     if (!users.includes(message.number) || (admin_numbers.includes(message.number) && message.content?.toLowerCase().startsWith('first'))) {
-      // const user = await prisma.user.create({ data: { number: message.number } })
-      const user = await prisma.user.upsert({ where: { number: message.number }, update: {}, create: { number: message.number } })
-      users.push(message.number)
+      const user: User = { ...default_user, number: message.number }
+      log_user(user)
 
-      await send_message({ ...message_response, content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by ChatGPT so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: 'intro' })
-      message.media_url ? await layer_image(message, user) : await send_message({ ...message_response, content: 'Send a photo to get started!' })
-
+      await send_message({ ...message_response, content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by AI so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: MessageType.intro })
+      message.media_url ? await layer_image(message, user) : await send_message({ ...message_response, content: 'Send a photo to get started!', type: MessageType.intro })
       return
     }
     if (message.content?.toLowerCase().startsWith('reset')) { return }  // reset
@@ -147,7 +146,7 @@ async function analyze_message(message: Message) {
     const previous_messages = await get_previous_messages(message, 8)
 
     let categories: string[] = [MessageType.help, MessageType.order_quantity, MessageType.customer_support, MessageType.unsubscribe]
-    if (local) categories.push(MessageType.checkout, MessageType.new_order)
+    // if (local) categories.push(MessageType.checkout, MessageType.new_order)
     const categorize = await openai.createCompletion({
       model: 'text-davinci-003',
       prompt: `
@@ -162,6 +161,8 @@ async function analyze_message(message: Message) {
       Category: help
       Text: I'd like to speak to a human
       Category: customer_support
+      Text: black
+      Category: order_quantity
       ###
       Previous Messages
       ${previous_messages}
@@ -200,13 +201,15 @@ async function analyze_message(message: Message) {
         Examples:
         Text: I'll take both
         Values: 1,1
+        Text: black
+        Values: 1,0
         ###
         Current Order:
         Message: ${message.content}
         Values:`
       })
       // remove blank space from response, split into array
-      const quantities = openAIResponse.data.choices[0].text?.toString().replace(/[^0-9,]/g, '').split(',')
+      const quantities = openAIResponse.data.choices[0].text?.toString().trim().split(',')
 
       await send_message({ ...message_response, content: `Nice choice, I’ll get this shipped out ASAP. Click the link to checkout: https://textframedaddy.com/cart/43286555033836:${quantities![0]},43480829198572:${quantities![1]}` })
     } else if (category == MessageType.help) {
@@ -230,7 +233,7 @@ async function analyze_message(message: Message) {
     } else if (category == MessageType.checkout) {
 
       if (!user.order) return
-      const order = user.order.replace(/[^0-9,]/g, '').split('&&')
+      const order = user.order.trim().split('&&')
       const links = order.map((order: string) => order.split('|')[0]), quantities = order.map((order: string) => order.split('|')[1])
       const black_quantities = order.map((quantities: string) => Number(quantities.split(',')[0]))
       const white_quantities = order.map((quantities: string) => Number(quantities.split(',')[1]))
@@ -343,6 +346,16 @@ async function log_message(message: Message) {
     const Coda_doc = await coda.getDoc(coda_doc_key)
     const Coda_messages_table = await Coda_doc.getTable(coda_messages_key)
     await Coda_messages_table.insertRows([{ content: message.content ? message.content : undefined, picture: message.media_url ? message.media_url : undefined, media_url: message.media_url ? message.media_url : undefined, number: message.number, received_PST: message.date, is_outbound: message.is_outbound ? message.is_outbound : undefined }])
+  } catch (e) { console.log(e) }
+}
+
+async function log_user(user: User) {
+  try {
+    users.push(user.number)
+    const Coda_doc = await coda.getDoc(coda_doc_key)
+    const Coda_users_table = await Coda_doc.getTable(coda_users_key)
+    await Coda_users_table.insertRows([{ number: user.number }])
+    await prisma.user.upsert({ where: { number: user.number }, update: {}, create: { number: user.number } })
   } catch (e) { console.log(e) }
 }
 

@@ -15,4 +15,3 @@ clarifications:
 - if you cannot help the user or they say they want to talk to a representative, put "SUPPORT" as the Response
 Below are pieces of media. Add "media_url:<url>" to the response.
 - contact card (ONLY SEND THIS IF THE USER EXPLICITLY ASKS FOR IT): https://framedaddy-backend.onrender.com/assets/FrameDaddy.vcf
-- cropping photo, aspect ratio tutorial (ONLY send if somebody needs help cropping their photo): https://framedaddy-backend.onrender.com/assets/aspect_ratio_tutorial.png

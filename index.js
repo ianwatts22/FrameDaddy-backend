@@ -54,6 +54,7 @@ var AdminNumbers;
 const admin_numbers = Object.values(AdminNumbers);
 const sendblue_callback = `${link}/message-status`;
 const default_message = { content: null, number: '', type: null, is_outbound: null, date: new Date(), was_downgraded: null, media_url: null, send_style: null, response_time: null };
+const default_user = { number: '', name: null, email: null, order: null };
 const coda_doc_key = 'Wkshedo2Sb', coda_messages_key = 'grid-_v0sM6s7e1', coda_users_key = 'grid-VBi-mmgrKi';
 let users;
 let users_test = ['+13104974985', '+19165919394'];
@@ -65,10 +66,10 @@ function local_data() {
             const Coda_doc = yield coda.getDoc(coda_doc_key); // const Coda_tables = await Coda_doc.listTables()
             const Coda_users_table = yield Coda_doc.getTable(coda_users_key);
             const Coda_user_rows = yield Coda_users_table.listRows({ useColumnNames: true });
-            users = Coda_user_rows.map((row) => (row.values).phone);
+            users = Coda_user_rows.map((row) => (row.values).number);
             const Coda_messages_table = yield Coda_doc.getTable(coda_messages_key);
             const Coda_messages_rows = yield Coda_messages_table.listRows({ useColumnNames: true });
-            let messages = Coda_messages_rows.map((row) => (row.values).phone);
+            let messages = Coda_messages_rows.map((row) => (row.values).number);
             const columns = yield Coda_messages_table.listColumns(null);
             // console.log(columns.map((column) => (column as { name: string }).name))
             // =========Prisma=========
@@ -141,11 +142,10 @@ function analyze_message(message) {
             let message_response = Object.assign(Object.assign({}, default_message), { number: message.number });
             // intro message
             if (!users.includes(message.number) || (admin_numbers.includes(message.number) && ((_a = message.content) === null || _a === void 0 ? void 0 : _a.toLowerCase().startsWith('first')))) {
-                // const user = await prisma.user.create({ data: { number: message.number } })
-                const user = yield prisma.user.upsert({ where: { number: message.number }, update: {}, create: { number: message.number } });
-                users.push(message.number);
-                yield send_message(Object.assign(Object.assign({}, message_response), { content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by ChatGPT so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: 'intro' }));
-                message.media_url ? yield layer_image(message, user) : yield send_message(Object.assign(Object.assign({}, message_response), { content: 'Send a photo to get started!' }));
+                const user = Object.assign(Object.assign({}, default_user), { number: message.number });
+                log_user(user);
+                yield send_message(Object.assign(Object.assign({}, message_response), { content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by AI so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: client_1.MessageType.intro }));
+                message.media_url ? yield layer_image(message, user) : yield send_message(Object.assign(Object.assign({}, message_response), { content: 'Send a photo to get started!', type: client_1.MessageType.intro }));
                 return;
             }
             if ((_b = message.content) === null || _b === void 0 ? void 0 : _b.toLowerCase().startsWith('reset')) {
@@ -169,8 +169,7 @@ function analyze_message(message) {
             console.log(`${Date.now() - t0}ms - analyze_message user`);
             const previous_messages = yield get_previous_messages(message, 8);
             let categories = [client_1.MessageType.help, client_1.MessageType.order_quantity, client_1.MessageType.customer_support, client_1.MessageType.unsubscribe];
-            if (local)
-                categories.push(client_1.MessageType.checkout, client_1.MessageType.new_order);
+            // if (local) categories.push(MessageType.checkout, MessageType.new_order)
             const categorize = yield openai.createCompletion({
                 model: 'text-davinci-003',
                 prompt: `
@@ -185,6 +184,8 @@ function analyze_message(message) {
       Category: help
       Text: I'd like to speak to a human
       Category: customer_support
+      Text: black
+      Category: order_quantity
       ###
       Previous Messages
       ${previous_messages}
@@ -220,13 +221,15 @@ function analyze_message(message) {
         Examples:
         Text: I'll take both
         Values: 1,1
+        Text: black
+        Values: 1,0
         ###
         Current Order:
         Message: ${message.content}
         Values:`
                 });
                 // remove blank space from response, split into array
-                const quantities = (_e = openAIResponse.data.choices[0].text) === null || _e === void 0 ? void 0 : _e.toString().replace(/[^0-9,]/g, '').split(',');
+                const quantities = (_e = openAIResponse.data.choices[0].text) === null || _e === void 0 ? void 0 : _e.toString().trim().split(',');
                 yield send_message(Object.assign(Object.assign({}, message_response), { content: `Nice choice, I’ll get this shipped out ASAP. Click the link to checkout: https://textframedaddy.com/cart/43286555033836:${quantities[0]},43480829198572:${quantities[1]}` }));
             }
             else if (category == client_1.MessageType.help) {
@@ -254,7 +257,7 @@ function analyze_message(message) {
             else if (category == client_1.MessageType.checkout) {
                 if (!user.order)
                     return;
-                const order = user.order.replace(/[^0-9,]/g, '').split('&&');
+                const order = user.order.trim().split('&&');
                 const links = order.map((order) => order.split('|')[0]), quantities = order.map((order) => order.split('|')[1]);
                 const black_quantities = order.map((quantities) => Number(quantities.split(',')[0]));
                 const white_quantities = order.map((quantities) => Number(quantities.split(',')[1]));
@@ -382,6 +385,20 @@ function log_message(message) {
             const Coda_doc = yield coda.getDoc(coda_doc_key);
             const Coda_messages_table = yield Coda_doc.getTable(coda_messages_key);
             yield Coda_messages_table.insertRows([{ content: message.content ? message.content : undefined, picture: message.media_url ? message.media_url : undefined, media_url: message.media_url ? message.media_url : undefined, number: message.number, received_PST: message.date, is_outbound: message.is_outbound ? message.is_outbound : undefined }]);
+        }
+        catch (e) {
+            console.log(e);
+        }
+    });
+}
+function log_user(user) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            users.push(user.number);
+            const Coda_doc = yield coda.getDoc(coda_doc_key);
+            const Coda_users_table = yield Coda_doc.getTable(coda_users_key);
+            yield Coda_users_table.insertRows([{ number: user.number }]);
+            yield prisma.user.upsert({ where: { number: user.number }, update: {}, create: { number: user.number } });
         }
         catch (e) {
             console.log(e);
