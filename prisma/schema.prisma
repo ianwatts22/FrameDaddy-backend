@@ -25,7 +25,6 @@ model Message {
   type           MessageType?
   response_time  Float?
 }
-
 enum MessageType {
   order_placed
   intro
@@ -38,7 +37,6 @@ enum MessageType {
   announcement
   unsubscribe
 }
-
 enum SendStyle {
   celebration
   shooting_star

@@ -17,7 +17,6 @@ import { Client, ClientConfig } from 'pg'
 import { Prisma, PrismaClient, User, Message, MessageType, SendStyle } from '@prisma/client'
 import '@shopify/shopify-api/adapters/node';
 import { shopifyApi, LATEST_API_VERSION, Session } from "@shopify/shopify-api"
-import { Table } from 'coda-js/build/models'
 
 let hostname = '0.0.0.0', link = 'https://framedaddy-backend.onrender.com', local = false
 if (os.hostname().split('.').pop() === 'local') hostname = '127.0.0.1', link = process.env.NGROK!, local = true
@@ -39,16 +38,12 @@ client.connect()
 // ========================================================================================
 
 enum AdminNumbers { Ian = '+13104974985', Adam = '+19165919394', Corn = '+19498702865', Lubin = '+16143019108', Boser = '+17324035224', }
-const admin_numbers: string[] = Object.values(AdminNumbers)
-const sendblue_callback = `${link}/message-status`
+const admin_numbers: string[] = Object.values(AdminNumbers), sendblue_callback = `${link}/message-status`, coda_doc_key = 'Wkshedo2Sb', coda_messages_key = 'grid-_v0sM6s7e1', coda_users_key = 'grid-VBi-mmgrKi'
 
 const default_message: Message = { content: null, number: '', type: null, is_outbound: null, date: new Date(), was_downgraded: null, media_url: null, send_style: null, response_time: null }
 const default_user: User = { number: '', name: null, email: null, order: null }
 
-const coda_doc_key = 'Wkshedo2Sb', coda_messages_key = 'grid-_v0sM6s7e1', coda_users_key = 'grid-VBi-mmgrKi'
-
-let users: string[]
-let users_test = ['+13104974985','+19165919394']
+let users: string[], users_test = ['+13104974985','+19165919394']
 // send_message({ ...default_message, content: 'FrameDaddy admin: test !' }, users_test)
 local_data()
 async function local_data() {
@@ -65,7 +60,7 @@ async function local_data() {
 
     // =========Prisma=========
     // users = await prisma.users.findMany().then(users => users.map(user => user.number))
-  } catch (e) { console.log(e) }
+  } catch (e) { error_alert(e) }
 }
 
 // ======================================================================================
@@ -79,7 +74,8 @@ app.post('/fdorder', async (req: express.Request, res: express.Response) => {
 
     const order = req.body.line_items.map((item: any) => { `${item.quantity}x ${item.name}\n` }).join(`\n`)
     let message_response: Message = { ...default_message, type: 'order_placed', number: user.number }
-    await send_message({ ...message_response, content: `You've been framed 😎! Here's your order info (#${req.body.order_number}) ${req.body.order_status_url}`, send_style: SendStyle.confetti })
+    await send_message({ ...message_response, content: `You've been framed 😎! Here's your order info (#${req.body.order_number})` })
+    await send_message({ ...message_response, content: req.body.order_status_url, send_style: SendStyle.confetti })
     await send_message({ ...message_response, content: "Don’t forget to save my contact card for quick and easy ordering" })
     await log_message({ ...message_response, content: `<order_placed:\n${order}>` })
 
@@ -98,7 +94,7 @@ app.post('/fdshipped', async (req: express.Request, res: express.Response) => {
 
 app.post('/message', (req: express.Request, res: express.Response) => {
   try {
-    analyze_message({ ...default_message, content: req.body.content, media_url: req.body.media_url, number: req.body.number, was_downgraded: req.body.was_downgraded, is_outbound: false, date: new Date(req.body.date_sent) })
+    analyze_message({ ...default_message, content: req.body.content, media_url: req.body.media_url, number: req.body.number, was_downgraded: req.body.was_downgraded, is_outbound: false, date: new Date(req.body.date_sent), response_time: new Date(req.body.date_sent).valueOf()/1000 })
     res.status(200).end()
   } catch (e) { res.status(500).end(); error_alert(e) }
 })
@@ -137,12 +133,12 @@ async function analyze_message(message: Message) {
 
     if (message.media_url) { await layer_image(message, user); return }
     else if (message.content?.toLowerCase().includes('admin:') && admin_numbers.includes(message.number)) {
-      console.log(`admin: ${Date.now() - t0}ms`)
+      console.log(`${log_time(message.response_time!)} - admin`)
       await send_message({ ...default_message, content: message.content.split(':').pop()!, media_url: message.media_url, type: MessageType.announcement }, users_test); return
       // await send_message({ ...default_message, content: message.content.split(':').pop()!, media_url: message.media_url, type: MessageType.announcement }, users); return
     }
 
-    console.log(`${Date.now() - t0}ms - analyze_message user`)
+    console.log(`${log_time(message.response_time!)} - user`)
     const previous_messages = await get_previous_messages(message, 8)
 
     let categories: string[] = [MessageType.help, MessageType.order_quantity, MessageType.customer_support, MessageType.unsubscribe]
@@ -171,7 +167,7 @@ async function analyze_message(message: Message) {
       Category:` /*  "checkout" is when for when the customer no longer wants to send photos and is checkout out. "new_order" is when they say they want to start a new order. */
     })
     const category = categorize.data.choices[0].text?.toLowerCase().replace(/\s+/g, "")
-    console.log(`${Date.now() - t0}ms - /analyze_message - categorize (${category})`)
+    console.log(`${log_time(message.response_time!)} - categorize (${category})`)
 
     // cateogrization error
     if (!category || !categories.includes(category)) {
@@ -325,8 +321,7 @@ async function layer_image(message: Message, user: User) {
 async function send_message(message: Message, numbers?: string[]) {
   try {
     message.date = new Date(), message.is_outbound = true
-    if (message.response_time) message.response_time = Number(message.date.valueOf() - message.response_time) / 1000
-    console.log(message.response_time)
+    if (message.response_time) message.response_time = Date.now()/1000 - message.response_time
     if (numbers) {
       for (const number of numbers) {
         await sendblue.sendMessage({ content: message.content ? message.content : undefined, number: number, send_style: message.send_style ? message.send_style : undefined, media_url: message.media_url ? message.media_url : undefined, status_callback: sendblue_callback })
@@ -334,7 +329,7 @@ async function send_message(message: Message, numbers?: string[]) {
     } else {
       await sendblue.sendMessage({ content: message.content ? message.content : undefined, number: message.number, send_style: message.send_style ? message.send_style : undefined, media_url: message.media_url ? message.media_url : undefined, status_callback: sendblue_callback })
     }
-    console.log(`${Date.now() - message.date.valueOf()}ms - send_message (${message.number})`)
+    console.log(`${log_time(message.response_time!)} - send_message (${message.number})`)
     await log_message(message)
   } catch (e) { error_alert(e) }
 }
@@ -345,7 +340,7 @@ async function log_message(message: Message) {
     const Coda_doc = await coda.getDoc(coda_doc_key)
     const Coda_messages_table = await Coda_doc.getTable(coda_messages_key)
     await Coda_messages_table.insertRows([{ content: message.content ? message.content : undefined, picture: message.media_url ? message.media_url : undefined, media_url: message.media_url ? message.media_url : undefined, number: message.number, received_PST: message.date, is_outbound: message.is_outbound ? message.is_outbound : undefined }])
-  } catch (e) { console.log(e) }
+  } catch (e) { error_alert(e) }
 }
 
 async function log_user(user: User) {
@@ -355,10 +350,12 @@ async function log_user(user: User) {
     const Coda_users_table = await Coda_doc.getTable(coda_users_key)
     await Coda_users_table.insertRows([{ number: user.number }])
     await prisma.user.upsert({ where: { number: user.number }, update: {}, create: { number: user.number } })
-  } catch (e) { console.log(e) }
+  } catch (e) { error_alert(e) }
 }
 
 async function error_alert(error: any, message?: Message) { await send_message({ ...default_message, content: `ERROR\n${error}`, number: AdminNumbers.Ian }); console.error(`ERROR: ${error}`) }
+
+const log_time = (time: number) => `${(Date.now()/1000 - time).toFixed(1)}sec`
 
 // ======================================================================================
 // ========================================TESTING=======================================
