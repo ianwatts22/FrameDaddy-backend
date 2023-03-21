@@ -233,18 +233,16 @@ function analyze_message(message) {
                 yield send_message(Object.assign(Object.assign({}, message_response), { content: `Nice choice, I’ll get this shipped out ASAP. Click the link to checkout: https://textframedaddy.com/cart/43286555033836:${quantities[0]},43480829198572:${quantities[1]}` }));
             }
             else if (category == client_1.MessageType.help) {
-                const prompt = `${help_prompt}
-      ###
-      ${previous_messages}
-      Customer: ${message.content}
-      FrameDaddy:`;
-                let content, media_url, openAIResponse = yield openai.createCompletion({ model: 'text-davinci-003', max_tokens: 512, temperature: .5, presence_penalty: .7, frequency_penalty: .7, prompt: prompt });
+                const prompt = `${help_prompt}\n###${previous_messages}\nCustomer: ${message.content}\nFrameDaddy:`;
+                let content, media_url;
+                let openAIResponse = yield openai.createCompletion({ model: 'text-davinci-003', max_tokens: 512, temperature: .5, presence_penalty: .7, frequency_penalty: .7, prompt: prompt });
                 openAIResponse = openAIResponse.data.choices[0].text;
+                console.log(openAIResponse);
                 if (openAIResponse.includes('media_url'))
                     content = openAIResponse.split('media_url:')[0], media_url = openAIResponse.split('media_url:')[1];
                 else
                     content = openAIResponse;
-                console.log(prompt + content);
+                console.log(prompt + "CONTENT\n" + content + "\nMEDIA_URL\n" + media_url);
                 yield send_message(Object.assign(Object.assign({}, message_response), { content: content, media_url: media_url }));
             }
             else if (category == client_1.MessageType.customer_support) {
@@ -370,7 +368,7 @@ function send_message(message, numbers) {
             else {
                 yield sendblue.sendMessage({ content: message.content ? message.content : undefined, number: message.number, send_style: message.send_style ? message.send_style : undefined, media_url: message.media_url ? message.media_url : undefined, status_callback: sendblue_callback });
             }
-            console.log(`${Date.now() - message.date.valueOf()}ms - send_message`);
+            console.log(`${Date.now() - message.date.valueOf()}ms - send_message (${message.number})`);
             yield log_message(message);
         }
         catch (e) {
@@ -435,8 +433,10 @@ let test_user = { number: '+13104974985', email: 'ianwatts22@gmail.com', name: '
 // test(test_message)
 function test(message, user, string) {
     return __awaiter(this, void 0, void 0, function* () {
+        send_message(Object.assign(Object.assign({}, default_message), { content: ``, number: '+13104974985' }));
     });
 }
+// Sure thing! Just text me a photo (portrait or landscape) you want framed and I'll take care of the rest. You can only send and order one photo at a time, however multiple photo ordering will be ready shortly. The photos are 5"x7" and come in ONLY black or white frames for $19.99. Adam and Alex lovingly handframe, package, and ship your photo from New York. Frames have a wall-hook and easel-back to hang or stand up. If you need help with the texting service, you can upload your photo at our website: textframedaddy.com
 // data_sync()
 function data_sync() {
     return __awaiter(this, void 0, void 0, function* () {
