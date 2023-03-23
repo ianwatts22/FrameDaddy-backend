@@ -136,27 +136,27 @@ function analyze_message(message) {
     var _a, _b, _c, _d, _e;
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            let message_response = Object.assign(Object.assign({}, default_message), { number: message.number });
+            let message_response = Object.assign(Object.assign({}, default_message), { number: message.number }), user;
             // intro message
             if (!users.includes(message.number) || (admin_numbers.includes(message.number) && ((_a = message.content) === null || _a === void 0 ? void 0 : _a.toLowerCase().startsWith('first')))) {
-                const user = Object.assign(Object.assign({}, default_user), { number: message.number });
-                log_user(user);
+                user = yield log_user(Object.assign(Object.assign({}, default_user), { number: message.number }));
                 // await send_message({ ...message_response, content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by AI so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: MessageType.intro })
                 // message.media_url ? await layer_image(message, user) : await send_message({ ...message_response, content: 'Send a photo to get started!', type: MessageType.intro })
                 sendblue.sendGroupMessage({ content: `🚨 NEW USER 🚨`, numbers: admin_numbers });
                 // log_message(message)
                 // return
             }
+            else {
+                user = yield prisma.user.findUnique({ where: { number: message.number } });
+            }
+            if (!user) {
+                error_alert('NO USER ERROR');
+            }
             if ((_b = message.content) === null || _b === void 0 ? void 0 : _b.toLowerCase().startsWith('reset')) {
                 return;
             } // reset
-            const user = yield prisma.user.findUnique({ where: { number: message.number } });
-            if (!user) {
-                error_alert('NO USER ERROR');
-                return;
-            }
             if (message.media_url) {
-                yield layer_image(message, user);
+                yield layer_image(message);
                 return;
             }
             else if (((_c = message.content) === null || _c === void 0 ? void 0 : _c.toLowerCase().includes('admin:')) && admin_numbers.includes(message.number)) {
@@ -305,15 +305,14 @@ function get_previous_messages(message, amount = 14) {
         return previous_messages_string;
     });
 }
-function layer_image(message, user) {
+function layer_image(message) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
         const t0 = Date.now();
         const joke = get_joke();
-        const message_response = Object.assign(Object.assign({}, default_message), { number: user.number, type: client_1.MessageType.layered_image });
+        const message_response = Object.assign(Object.assign({}, default_message), { number: message.number, type: client_1.MessageType.layered_image });
         send_message(Object.assign(Object.assign({}, message_response), { content: `Ready in a sec, in the meantime:\n${joke.joke}` }));
-        send_message(Object.assign(Object.assign({}, message_response), { content: joke.punchline, send_style: client_1.SendStyle.invisible }));
-        // setTimeout(() => {  }, 3000)
+        setTimeout(() => { send_message(Object.assign(Object.assign({}, message_response), { content: joke.punchline, send_style: client_1.SendStyle.invisible })); }, 3000);
         let public_id = `${message.number.substring(2)}_${(_a = message.date) === null || _a === void 0 ? void 0 : _a.toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/[:,]/g, '').replace(/[/\s]/g, '-')}`;
         console.log(public_id); // ex: '3104974985_10-20-21_18-00-00'
         try {
@@ -343,7 +342,7 @@ function layer_image(message, user) {
                 // const image = `https://res.cloudinary.com/dpxdjc7qy/image/upload/q_60/u_${path}/c_fill,g_auto,ar_${ar}/e_distort:${distort[0]}/fl_layer_apply,g_north_west,x_0,y_0/u_${path}/c_fill,g_auto,ar_${ar}/e_distort:${distort[1]}/fl_layer_apply,g_north_west,x_0,y_0/c_crop,g_north_west,h_${background_crop[1]},w_${background_crop[0]}//FrameDaddy/assets/double_${setup}.jpg`
                 console.log(`image: ${image}`);
                 yield send_message(Object.assign(Object.assign({}, message_response), { media_url: image }));
-                send_message(Object.assign(Object.assign({}, message_response), { content: `How many frames would you like, and in what color(s)? i.e. 1 black, 1 white` }));
+                send_message(Object.assign(Object.assign({}, message_response), { content: `How many frames would you like, and in what color(s)? i.e. 2 black, 1 white` }));
                 // if (user.order == '') send_message({ ...message_response, content: `If you want more photos framed keep em coming, otherwise let me know when you want to checkout` })
                 const image_mod = yield cloudinary_1.v2.image(public_id, { gravity: "auto", aspect_ratio: ar, crop: "fill" });
                 console.log(`image_mod: ${image_mod}`);
@@ -396,8 +395,9 @@ function log_user(user) {
             users.push(user.number);
             const Coda_doc = yield coda.getDoc(coda_doc_key);
             const Coda_users_table = yield Coda_doc.getTable(coda_users_key);
-            yield Coda_users_table.insertRows([{ number: user.number }]);
-            yield prisma.user.upsert({ where: { number: user.number }, update: {}, create: { number: user.number } });
+            Coda_users_table.insertRows([{ number: user.number }]);
+            const prisma_user = yield prisma.user.upsert({ where: { number: user.number }, update: {}, create: { number: user.number } });
+            return prisma_user;
         }
         catch (e) {
             error_alert(e);

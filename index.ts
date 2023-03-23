@@ -114,25 +114,23 @@ job.start()
 const contact_card = `${link}/assets/FrameDaddy.vcf`
 async function analyze_message(message: Message) {
   try {
-    let message_response: Message = { ...default_message, number: message.number }
+    let message_response: Message = { ...default_message, number: message.number }, user
     // intro message
     if (!users.includes(message.number) || (admin_numbers.includes(message.number) && message.content?.toLowerCase().startsWith('first'))) {
-      const user: User = { ...default_user, number: message.number }
-      log_user(user)
+      user = await log_user({ ...default_user, number: message.number })
 
       // await send_message({ ...message_response, content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by AI so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: MessageType.intro })
       // message.media_url ? await layer_image(message, user) : await send_message({ ...message_response, content: 'Send a photo to get started!', type: MessageType.intro })
       sendblue.sendGroupMessage({ content: `🚨 NEW USER 🚨`, numbers: admin_numbers })
       // log_message(message)
       // return
+    } else {
+      user = await prisma.user.findUnique({ where: { number: message.number } })
     }
+    if (!user) { error_alert('NO USER ERROR') }
     if (message.content?.toLowerCase().startsWith('reset')) { return }  // reset
 
-    const user = await prisma.user.findUnique({ where: { number: message.number } })
-    if (!user) { error_alert('NO USER ERROR'); return }
-
-
-    if (message.media_url) { await layer_image(message, user); return }
+    if (message.media_url) { await layer_image(message); return }
     else if (message.content?.toLowerCase().includes('admin:') && admin_numbers.includes(message.number)) {
       console.log(`${log_time(message.response_time!)} - admin`)
       await send_message({ ...default_message, content: message.content.split(':').pop()!, media_url: message.media_url, type: MessageType.announcement }, users_test); return
@@ -227,9 +225,8 @@ async function analyze_message(message: Message) {
     } else if (category == MessageType.new_order) {
       await send_message({ ...message_response, content: `Alright, new order started.`, type: category })
     } else if (category == MessageType.checkout) {
-
-      if (!user.order) return
-      const order = user.order.trim().split('&&')
+      if (!user!.order) return
+      const order = user!.order.trim().split('&&')
       const links = order.map((order: string) => order.split('|')[0]), quantities = order.map((order: string) => order.split('|')[1])
       const black_quantities = order.map((quantities: string) => Number(quantities.split(',')[0]))
       const white_quantities = order.map((quantities: string) => Number(quantities.split(',')[1]))
@@ -273,13 +270,12 @@ async function get_previous_messages(message: Message, amount: number = 14) {
   return previous_messages_string
 }
 
-async function layer_image(message: Message, user: User) {
+async function layer_image(message: Message) {
   const t0 = Date.now()
   const joke = get_joke()
-  const message_response: Message = { ...default_message, number: user.number, type: MessageType.layered_image }
+  const message_response: Message = { ...default_message, number: message.number, type: MessageType.layered_image }
   send_message({ ...message_response, content: `Ready in a sec, in the meantime:\n${joke.joke}` })
-  send_message({ ...message_response, content: joke.punchline, send_style: SendStyle.invisible })
-  // setTimeout(() => {  }, 3000)
+  setTimeout(() => { send_message({ ...message_response, content: joke.punchline, send_style: SendStyle.invisible }) }, 3000)
 
   let public_id = `${message.number.substring(2)}_${message.date?.toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/[:,]/g, '').replace(/[/\s]/g, '-')}`
   console.log(public_id)  // ex: '3104974985_10-20-21_18-00-00'
@@ -313,7 +309,7 @@ async function layer_image(message: Message, user: User) {
       console.log(`image: ${image}`)
 
       await send_message({ ...message_response, media_url: image })
-      send_message({ ...message_response, content: `How many frames would you like, and in what color(s)? i.e. 1 black, 1 white` })
+      send_message({ ...message_response, content: `How many frames would you like, and in what color(s)? i.e. 2 black, 1 white` })
       // if (user.order == '') send_message({ ...message_response, content: `If you want more photos framed keep em coming, otherwise let me know when you want to checkout` })
 
       const image_mod = await cloudinary.image(public_id, { gravity: "auto", aspect_ratio: ar, crop: "fill" })
@@ -353,8 +349,9 @@ async function log_user(user: User) {
     users.push(user.number)
     const Coda_doc = await coda.getDoc(coda_doc_key)
     const Coda_users_table = await Coda_doc.getTable(coda_users_key)
-    await Coda_users_table.insertRows([{ number: user.number }])
-    await prisma.user.upsert({ where: { number: user.number }, update: {}, create: { number: user.number } })
+    Coda_users_table.insertRows([{ number: user.number }])
+    const prisma_user = await prisma.user.upsert({ where: { number: user.number }, update: {}, create: { number: user.number } })
+    return prisma_user
   } catch (e) { error_alert(e) }
 }
 
