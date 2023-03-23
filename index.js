@@ -142,7 +142,7 @@ function analyze_message(message) {
                 user = yield log_user(Object.assign(Object.assign({}, default_user), { number: message.number }));
                 // await send_message({ ...message_response, content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by AI so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: MessageType.intro })
                 // message.media_url ? await layer_image(message, user) : await send_message({ ...message_response, content: 'Send a photo to get started!', type: MessageType.intro })
-                sendblue.sendGroupMessage({ content: `🚨 NEW USER 🚨`, numbers: admin_numbers });
+                sendblue.sendGroupMessage({ content: `🚨 NEW USER 🚨 (${message.number})`, numbers: admin_numbers });
                 // log_message(message)
                 // return
             }
