@@ -88,7 +88,7 @@ app.post('/fdorder', (req, res) => __awaiter(void 0, void 0, void 0, function* (
         let message_response = Object.assign(Object.assign({}, default_message), { type: 'order_placed', number: user.number });
         yield send_message(Object.assign(Object.assign({}, message_response), { content: `You've been framed 😎! Here's your order info (#${req.body.order_number})` }));
         yield send_message(Object.assign(Object.assign({}, message_response), { content: req.body.order_status_url, send_style: client_1.SendStyle.confetti }));
-        yield send_message(Object.assign(Object.assign({}, message_response), { content: "Don’t forget to save my contact card for quick and easy ordering" }));
+        yield send_message(Object.assign(Object.assign({}, message_response), { content: "Don’t forget to save my contact card for quick and easy ordering", media_url: contact_card }));
         yield log_message(Object.assign(Object.assign({}, message_response), { content: `<order_placed:\n${order}>` }));
         yield prisma.user.upsert({
             where: { number: user.number },
@@ -129,22 +129,23 @@ app.post('/message-status', (req, res) => {
 // ========================================FUNCTIONS=====================================
 // ======================================================================================
 const help_prompt = fs_1.default.readFileSync('prompts/help_prompt.txt', 'utf8');
-const job = new cron_1.default.CronJob('0 0 */1 * *', () => __awaiter(void 0, void 0, void 0, function* () { local_data(); }));
+const job = new cron_1.default.CronJob('0 0 */4 * *', () => __awaiter(void 0, void 0, void 0, function* () { local_data(); }));
 job.start();
 const contact_card = `${link}/assets/FrameDaddy.vcf`;
 function analyze_message(message) {
     var _a, _b, _c, _d, _e;
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const t0 = Date.now();
             let message_response = Object.assign(Object.assign({}, default_message), { number: message.number });
             // intro message
             if (!users.includes(message.number) || (admin_numbers.includes(message.number) && ((_a = message.content) === null || _a === void 0 ? void 0 : _a.toLowerCase().startsWith('first')))) {
                 const user = Object.assign(Object.assign({}, default_user), { number: message.number });
                 log_user(user);
-                yield send_message(Object.assign(Object.assign({}, message_response), { content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by AI so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: client_1.MessageType.intro }));
-                message.media_url ? yield layer_image(message, user) : yield send_message(Object.assign(Object.assign({}, message_response), { content: 'Send a photo to get started!', type: client_1.MessageType.intro }));
-                return;
+                // await send_message({ ...message_response, content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by AI so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: MessageType.intro })
+                // message.media_url ? await layer_image(message, user) : await send_message({ ...message_response, content: 'Send a photo to get started!', type: MessageType.intro })
+                sendblue.sendGroupMessage({ content: `🚨 NEW USER 🚨`, numbers: admin_numbers });
+                // log_message(message)
+                // return
             }
             if ((_b = message.content) === null || _b === void 0 ? void 0 : _b.toLowerCase().startsWith('reset')) {
                 return;
@@ -171,7 +172,7 @@ function analyze_message(message) {
             const categorize = yield openai.createCompletion({
                 model: 'text-davinci-003',
                 prompt: `
-      Categorize the following text into one of the following: [${categories}]. The default is "help". "customer_support" if they want to speak to a representative or you can't help them. If you are unsure, go with help. Example:
+      Categorize the following text into one of the following: [${categories}]. The default is "help". "customer_support" is if they want to speak to a representative or you can't help them. If you are unsure, go with "help". Example:
       Text: I'll take 2 white frames and three black
       Category: order_quantity
       Text: how does this work and how much do the frames cost?
@@ -277,7 +278,6 @@ function analyze_message(message) {
         }
     });
 }
-const message_date_format = { weekday: 'short', hour: 'numeric', minute: 'numeric', hour12: true };
 function get_previous_messages(message, amount = 14) {
     return __awaiter(this, void 0, void 0, function* () {
         let reset_message = new Date();
@@ -309,6 +309,11 @@ function layer_image(message, user) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
         const t0 = Date.now();
+        const joke = get_joke();
+        const message_response = Object.assign(Object.assign({}, default_message), { number: user.number, type: client_1.MessageType.layered_image });
+        send_message(Object.assign(Object.assign({}, message_response), { content: `Ready in a sec, in the meantime:\n${joke.joke}` }));
+        send_message(Object.assign(Object.assign({}, message_response), { content: joke.punchline, send_style: client_1.SendStyle.invisible }));
+        // setTimeout(() => {  }, 3000)
         let public_id = `${message.number.substring(2)}_${(_a = message.date) === null || _a === void 0 ? void 0 : _a.toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/[:,]/g, '').replace(/[/\s]/g, '-')}`;
         console.log(public_id); // ex: '3104974985_10-20-21_18-00-00'
         try {
@@ -321,7 +326,6 @@ function layer_image(message, user) {
                   { if: "end" }
                 ] */
             });
-            let message_response = Object.assign(Object.assign({}, default_message), { number: user.number, type: client_1.MessageType.layered_image });
             yield log_message(Object.assign(Object.assign({}, message), { media_url: data.url }));
             let orientation = data.exif.Orientation, width = data.width, height = data.height, ratio = data.width / data.height, path = `v${data.version}:${data.public_id.replace(/\//g, ':')}.${data.format}`;
             console.log(`path: ${path}`);
@@ -379,7 +383,7 @@ function log_message(message) {
             yield prisma.message.create({ data: message });
             const Coda_doc = yield coda.getDoc(coda_doc_key);
             const Coda_messages_table = yield Coda_doc.getTable(coda_messages_key);
-            yield Coda_messages_table.insertRows([{ content: message.content ? message.content : undefined, picture: message.media_url ? message.media_url : undefined, media_url: message.media_url ? message.media_url : undefined, number: message.number, received_PST: message.date, is_outbound: message.is_outbound ? message.is_outbound : undefined }]);
+            yield Coda_messages_table.insertRows([{ content: message.content ? message.content : undefined, picture: message.media_url ? message.media_url : undefined, media_url: message.media_url ? message.media_url : undefined, number: message.number, received_PST: message.date, is_outbound: message.is_outbound ? message.is_outbound : undefined, SMS: message.was_downgraded ? message.was_downgraded : undefined }]);
         }
         catch (e) {
             error_alert(e);
@@ -443,3 +447,25 @@ function data_sync() {
         }), 10000);
     });
 }
+const get_joke = () => jokes[Math.floor(Math.random() * jokes.length)];
+const jokes = [
+    { joke: "Why don't scientists trust atoms?", punchline: "Because they make up everything" },
+    { joke: "Why did the tomato turn red?", punchline: "Because it saw the salad dressing" },
+    { joke: "Why did the scarecrow win an award?", punchline: "Because he was outstanding in his field" },
+    { joke: "Why don't oysters donate to charity?", punchline: "Because they are shellfish" },
+    { joke: "Why do we never tell secrets on a farm?", punchline: "Because the potatoes have eyes and the corn has ears" },
+    { joke: "Why did the bicycle fall over?", punchline: "Because it was two-tired" },
+    { joke: "How do you organize a space party?", punchline: "You planet" },
+    { joke: "What do you call a fake noodle?", punchline: "An impasta" },
+    { joke: "Why did the golfer bring an extra pair of pants?", punchline: "In case he got a hole in one" },
+    { joke: "Why don't some couples go to the gym?", punchline: "Because some relationships don't work out" },
+    { joke: "What do you call cheese that isn't yours?", punchline: "Nacho cheese" },
+    { joke: "Why did the teddy bear say no to dessert?", punchline: "Because he was already stuffed" },
+    { joke: "Why was the math book sad?", punchline: "Because it had too many problems" },
+    { joke: "What do you get when you cross a snowman and a vampire?", punchline: "Frostbite" },
+    { joke: "Why couldn't the bicycle stand up by itself?", punchline: "It was two-tired" },
+    { joke: "What's orange and sounds like a parrot?", punchline: "A carrot" },
+    { joke: "Why did the picture go to jail?", punchline: "Because it was framed" },
+    { joke: "What do you call a dinosaur with an extensive vocabulary?", punchline: "A thesaurus" },
+    { joke: "What do you get when you cross a sheep and a kangaroo?", punchline: "A woolly jumper" }
+];

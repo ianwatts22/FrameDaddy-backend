@@ -43,7 +43,7 @@ const admin_numbers: string[] = Object.values(AdminNumbers), sendblue_callback =
 const default_message: Message = { content: null, number: '', type: null, is_outbound: null, date: new Date(), was_downgraded: null, media_url: null, send_style: null, response_time: null }
 const default_user: User = { number: '', name: null, email: null, order: null }
 
-let users: string[], users_test = ['+13104974985','+19165919394']
+let users: string[], users_test = ['+13104974985', '+19165919394']
 // send_message({ ...default_message, content: 'FrameDaddy admin: test !' }, users_test)
 local_data()
 async function local_data() {
@@ -76,7 +76,7 @@ app.post('/fdorder', async (req: express.Request, res: express.Response) => {
     let message_response: Message = { ...default_message, type: 'order_placed', number: user.number }
     await send_message({ ...message_response, content: `You've been framed 😎! Here's your order info (#${req.body.order_number})` })
     await send_message({ ...message_response, content: req.body.order_status_url, send_style: SendStyle.confetti })
-    await send_message({ ...message_response, content: "Don’t forget to save my contact card for quick and easy ordering" })
+    await send_message({ ...message_response, content: "Don’t forget to save my contact card for quick and easy ordering", media_url: contact_card })
     await log_message({ ...message_response, content: `<order_placed:\n${order}>` })
 
     await prisma.user.upsert({
@@ -94,7 +94,7 @@ app.post('/fdshipped', async (req: express.Request, res: express.Response) => {
 
 app.post('/message', (req: express.Request, res: express.Response) => {
   try {
-    analyze_message({ ...default_message, content: req.body.content, media_url: req.body.media_url, number: req.body.number, was_downgraded: req.body.was_downgraded, is_outbound: false, date: new Date(req.body.date_sent), response_time: new Date(req.body.date_sent).valueOf()/1000 })
+    analyze_message({ ...default_message, content: req.body.content, media_url: req.body.media_url, number: req.body.number, was_downgraded: req.body.was_downgraded, is_outbound: false, date: new Date(req.body.date_sent), response_time: new Date(req.body.date_sent).valueOf() / 1000 })
     res.status(200).end()
   } catch (e) { res.status(500).end(); error_alert(e) }
 })
@@ -108,22 +108,23 @@ app.post('/message-status', (req: express.Request, res: express.Response) => {
 
 const help_prompt = fs.readFileSync('prompts/help_prompt.txt', 'utf8')
 
-const job = new cron.CronJob('0 0 */1 * *', async () => { local_data() })
+const job = new cron.CronJob('0 0 */4 * *', async () => { local_data() })
 job.start()
 
 const contact_card = `${link}/assets/FrameDaddy.vcf`
 async function analyze_message(message: Message) {
   try {
-    const t0 = Date.now()
     let message_response: Message = { ...default_message, number: message.number }
     // intro message
     if (!users.includes(message.number) || (admin_numbers.includes(message.number) && message.content?.toLowerCase().startsWith('first'))) {
       const user: User = { ...default_user, number: message.number }
       log_user(user)
 
-      await send_message({ ...message_response, content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by AI so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: MessageType.intro })
-      message.media_url ? await layer_image(message, user) : await send_message({ ...message_response, content: 'Send a photo to get started!', type: MessageType.intro })
-      return
+      // await send_message({ ...message_response, content: `Hey I'm TextFrameDaddy.com, the easiest way to frame a 5x7 photo for just $19.99! I'm powered by AI so feel free to speak naturally. Add my contact below.`, media_url: contact_card, type: MessageType.intro })
+      // message.media_url ? await layer_image(message, user) : await send_message({ ...message_response, content: 'Send a photo to get started!', type: MessageType.intro })
+      sendblue.sendGroupMessage({ content: `🚨 NEW USER 🚨`, numbers: admin_numbers })
+      // log_message(message)
+      // return
     }
     if (message.content?.toLowerCase().startsWith('reset')) { return }  // reset
 
@@ -146,7 +147,7 @@ async function analyze_message(message: Message) {
     const categorize = await openai.createCompletion({
       model: 'text-davinci-003',
       prompt: `
-      Categorize the following text into one of the following: [${categories}]. The default is "help". "customer_support" if they want to speak to a representative or you can't help them. If you are unsure, go with help. Example:
+      Categorize the following text into one of the following: [${categories}]. The default is "help". "customer_support" is if they want to speak to a representative or you can't help them. If you are unsure, go with "help". Example:
       Text: I'll take 2 white frames and three black
       Category: order_quantity
       Text: how does this work and how much do the frames cost?
@@ -248,7 +249,6 @@ async function analyze_message(message: Message) {
   } catch (e) { error_alert(e) }
 }
 
-const message_date_format: object = { weekday: 'short', hour: 'numeric', minute: 'numeric', hour12: true }
 async function get_previous_messages(message: Message, amount: number = 14) {
   let reset_message = new Date()
   try {
@@ -275,6 +275,11 @@ async function get_previous_messages(message: Message, amount: number = 14) {
 
 async function layer_image(message: Message, user: User) {
   const t0 = Date.now()
+  const joke = get_joke()
+  const message_response: Message = { ...default_message, number: user.number, type: MessageType.layered_image }
+  send_message({ ...message_response, content: `Ready in a sec, in the meantime:\n${joke.joke}` })
+  send_message({ ...message_response, content: joke.punchline, send_style: SendStyle.invisible })
+  // setTimeout(() => {  }, 3000)
 
   let public_id = `${message.number.substring(2)}_${message.date?.toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/[:,]/g, '').replace(/[/\s]/g, '-')}`
   console.log(public_id)  // ex: '3104974985_10-20-21_18-00-00'
@@ -288,7 +293,7 @@ async function layer_image(message: Message, user: User) {
         { if: "end" }
       ] */
     })
-    let message_response: Message = { ...default_message, number: user.number, type: MessageType.layered_image }
+
     await log_message({ ...message, media_url: data.url })
 
     let orientation = data.exif.Orientation, width = data.width, height = data.height, ratio = data.width / data.height, path = `v${data.version}:${data.public_id.replace(/\//g, ':')}.${data.format}`
@@ -321,7 +326,7 @@ async function layer_image(message: Message, user: User) {
 async function send_message(message: Message, numbers?: string[]) {
   try {
     message.date = new Date(), message.is_outbound = true
-    if (message.response_time) message.response_time = Date.now()/1000 - message.response_time
+    if (message.response_time) message.response_time = Date.now() / 1000 - message.response_time
     if (numbers) {
       for (const number of numbers) {
         await sendblue.sendMessage({ content: message.content ? message.content : undefined, number: number, send_style: message.send_style ? message.send_style : undefined, media_url: message.media_url ? message.media_url : undefined, status_callback: sendblue_callback })
@@ -339,7 +344,7 @@ async function log_message(message: Message) {
     await prisma.message.create({ data: message })
     const Coda_doc = await coda.getDoc(coda_doc_key)
     const Coda_messages_table = await Coda_doc.getTable(coda_messages_key)
-    await Coda_messages_table.insertRows([{ content: message.content ? message.content : undefined, picture: message.media_url ? message.media_url : undefined, media_url: message.media_url ? message.media_url : undefined, number: message.number, received_PST: message.date, is_outbound: message.is_outbound ? message.is_outbound : undefined }])
+    await Coda_messages_table.insertRows([{ content: message.content ? message.content : undefined, picture: message.media_url ? message.media_url : undefined, media_url: message.media_url ? message.media_url : undefined, number: message.number, received_PST: message.date, is_outbound: message.is_outbound ? message.is_outbound : undefined, SMS: message.was_downgraded ? message.was_downgraded : undefined }])
   } catch (e) { error_alert(e) }
 }
 
@@ -355,7 +360,7 @@ async function log_user(user: User) {
 
 async function error_alert(error: any, message?: Message) { await send_message({ ...default_message, content: `ERROR\n${error}`, number: AdminNumbers.Ian }); console.error(`ERROR: ${error}`) }
 
-const log_time = (time: number) => `${(Date.now()/1000 - time).toFixed(1)}sec`
+const log_time = (time: number) => `${(Date.now() / 1000 - time).toFixed(1)}sec`
 
 // ======================================================================================
 // ========================================TESTING=======================================
@@ -387,7 +392,7 @@ let test_user: User = { number: '+13104974985', email: 'ianwatts22@gmail.com', n
 
 // test(test_message)
 async function test(message: Message, user?: User, string?: string) {
-  send_message({...default_message, content: ``, number: '+13104974985'})
+  send_message({ ...default_message, content: ``, number: '+13104974985' })
 }
 
 // message wasn't working: Sure thing! Just text me a photo (portrait or landscape) you want framed and I'll take care of the rest. You can only send and order one photo at a time, however multiple photo ordering will be ready shortly. The photos are 5"x7" and come in ONLY black or white frames for $19.99. Adam and Alex lovingly handframe, package, and ship your photo from New York. Frames have a wall-hook and easel-back to hang or stand up. If you need help with the texting service, you can upload your photo at our website: textframedaddy.com
@@ -398,3 +403,27 @@ async function data_sync() {
     users.forEach(async (user) => { await prisma.user.upsert({ where: { number: user }, update: { number: user }, create: { number: user } }) })
   }, 10000)
 }
+
+type Joke = { joke: string; punchline: string; }
+const get_joke = (): Joke => jokes[Math.floor(Math.random() * jokes.length)]
+const jokes: Joke[] = [
+  { joke: "Why don't scientists trust atoms?", punchline: "Because they make up everything" },
+  { joke: "Why did the tomato turn red?", punchline: "Because it saw the salad dressing" },
+  { joke: "Why did the scarecrow win an award?", punchline: "Because he was outstanding in his field" },
+  { joke: "Why don't oysters donate to charity?", punchline: "Because they are shellfish" },
+  { joke: "Why do we never tell secrets on a farm?", punchline: "Because the potatoes have eyes and the corn has ears" },
+  { joke: "Why did the bicycle fall over?", punchline: "Because it was two-tired" },
+  { joke: "How do you organize a space party?", punchline: "You planet" },
+  { joke: "What do you call a fake noodle?", punchline: "An impasta" },
+  { joke: "Why did the golfer bring an extra pair of pants?", punchline: "In case he got a hole in one" },
+  { joke: "Why don't some couples go to the gym?", punchline: "Because some relationships don't work out" },
+  { joke: "What do you call cheese that isn't yours?", punchline: "Nacho cheese" },
+  { joke: "Why did the teddy bear say no to dessert?", punchline: "Because he was already stuffed" },
+  { joke: "Why was the math book sad?", punchline: "Because it had too many problems" },
+  { joke: "What do you get when you cross a snowman and a vampire?", punchline: "Frostbite" },
+  { joke: "Why couldn't the bicycle stand up by itself?", punchline: "It was two-tired" },
+  { joke: "What's orange and sounds like a parrot?", punchline: "A carrot" },
+  { joke: "Why did the picture go to jail?", punchline: "Because it was framed" },
+  { joke: "What do you call a dinosaur with an extensive vocabulary?", punchline: "A thesaurus" },
+  { joke: "What do you get when you cross a sheep and a kangaroo?", punchline: "A woolly jumper" }
+]
