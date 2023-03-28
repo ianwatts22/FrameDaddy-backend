@@ -367,7 +367,7 @@ async function log_user(user: User) {
   } catch (e) { error_alert(e) }
 }
 
-async function error_alert(error: any, message?: Message) { await send_message({ ...default_message, content: `ERROR\n${error}`, number: AdminNumbers.Ian }); console.error(`ERROR: ${error}`) }
+async function error_alert(error: any, message?: Message) { /* await send_message({ ...default_message, content: `ERROR\n${error}`, number: AdminNumbers.Ian }); */ console.error(`ERROR: ${error}`) }
 
 const log_time = (time: number) => `${(Date.now() / 1000 - time).toFixed(1)}sec`
 

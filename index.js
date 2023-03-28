@@ -417,7 +417,7 @@ function log_user(user) {
     });
 }
 function error_alert(error, message) {
-    return __awaiter(this, void 0, void 0, function* () { yield send_message(Object.assign(Object.assign({}, default_message), { content: `ERROR\n${error}`, number: AdminNumbers.Ian })); console.error(`ERROR: ${error}`); });
+    return __awaiter(this, void 0, void 0, function* () { /* await send_message({ ...default_message, content: `ERROR\n${error}`, number: AdminNumbers.Ian }); */ console.error(`ERROR: ${error}`); });
 }
 const log_time = (time) => `${(Date.now() / 1000 - time).toFixed(1)}sec`;
 // ======================================================================================
