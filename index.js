@@ -108,6 +108,10 @@ app.post('/fdshipped', (req, res) => __awaiter(void 0, void 0, void 0, function*
 }));
 app.post('/message', (req, res) => {
     try {
+        if ((Date.now() - new Date(req.body.date_sent).valueOf()) > 1000 * 60 * 60) {
+            res.status(200).end();
+            return;
+        }
         analyze_message(Object.assign(Object.assign({}, default_message), { content: req.body.content, media_url: req.body.media_url, number: req.body.number, was_downgraded: req.body.was_downgraded, is_outbound: false, date: new Date(req.body.date_sent), response_time: new Date(req.body.date_sent).valueOf() / 1000 }));
         res.status(200).end();
     }

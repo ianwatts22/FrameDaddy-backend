@@ -95,6 +95,7 @@ app.post('/fdshipped', async (req: express.Request, res: express.Response) => {
 
 app.post('/message', (req: express.Request, res: express.Response) => {
   try {
+    if ((Date.now() - new Date(req.body.date_sent).valueOf()) > 1000*60*60) { res.status(200).end(); return }
     analyze_message({ ...default_message, content: req.body.content, media_url: req.body.media_url, number: req.body.number, was_downgraded: req.body.was_downgraded, is_outbound: false, date: new Date(req.body.date_sent), response_time: new Date(req.body.date_sent).valueOf() / 1000 })
     res.status(200).end()
   } catch (e) { res.status(500).end(); error_alert(e) }
