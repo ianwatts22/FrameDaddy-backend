@@ -56,6 +56,7 @@ async function local_data() {
     const Coda_messages_rows = await Coda_messages_table.listRows({ useColumnNames: true })
     let messages = Coda_messages_rows.map((row: any) => (((row as { values: Object }).values) as { number: string }).number)
     const columns = await Coda_messages_table.listColumns(null)
+    console.log(`Ian included in Users: ${users.includes('+13104974985')}`)
     // console.log(columns.map((column) => (column as { name: string }).name))
 
     // =========Prisma=========
@@ -274,8 +275,9 @@ async function layer_image(message: Message) {
   const t0 = Date.now()
   const joke = get_joke()
   const message_response: Message = { ...default_message, number: message.number, type: MessageType.layered_image }
-  send_message({ ...message_response, content: `Ready in a sec, in the meantime:\n${joke.joke}` })
-  setTimeout(() => { send_message({ ...message_response, content: joke.punchline, send_style: SendStyle.invisible }) }, 3000)
+  await send_message({ ...message_response, content: `Ready in a sec, in the meantime:\n${joke.joke}` })
+  send_message({ ...message_response, content: joke.punchline, send_style: SendStyle.invisible })
+  // setTimeout(() => {  }, 3000)
 
   let public_id = `${message.number.substring(2)}_${message.date?.toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/[:,]/g, '').replace(/[/\s]/g, '-')}`
   console.log(public_id)  // ex: '3104974985_10-20-21_18-00-00'
@@ -326,13 +328,23 @@ async function send_message(message: Message, numbers?: string[]) {
     if (numbers) {
       for (const number of numbers) {
         await sendblue.sendMessage({ content: message.content ? message.content : undefined, number: number, send_style: message.send_style ? message.send_style : undefined, media_url: message.media_url ? message.media_url : undefined, status_callback: sendblue_callback })
+        await log_message({...message, number: number})
       }
     } else {
       await sendblue.sendMessage({ content: message.content ? message.content : undefined, number: message.number, send_style: message.send_style ? message.send_style : undefined, media_url: message.media_url ? message.media_url : undefined, status_callback: sendblue_callback })
+      await log_message(message)
     }
     console.log(`${log_time(message.response_time!)} - send_message (${message.number})`)
     await log_message(message)
   } catch (e) { error_alert(e) }
+}
+
+// blast()
+async function blast() {
+  // const numbers = ["+19548813730", "amanraj7319.ar@gmail.com", "+17073223922", "anniedwyer909@icloud.com", "+19313325480", "+918894574954", "+16178391564", "+18642769212"]
+  const numbers = ["+13104974985",'+12132682683']
+
+  send_message({ ...default_message, content: "Hey, we experienced a bug yesterday that prevented responses to new users (fixed one thing broke another 🤦). Should be good to go now! If you're having any more trouble feel free to reach out to me personally at (310) 497-4985. Sorry again for the inconvenience, have a great day and thank you for using FrameDaddy!", number: AdminNumbers.Ian } )
 }
 
 async function log_message(message: Message) {
