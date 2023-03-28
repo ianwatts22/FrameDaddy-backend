@@ -15,16 +15,18 @@ model User {
 }
 
 model Message {
+  id             Int          @id @default(autoincrement())
   content        String?
   media_url      String?
   number         String
-  date           DateTime     @id @db.Timestamptz
+  date           DateTime     @db.Timestamptz
   is_outbound    Boolean?
   was_downgraded Boolean?     @default(false)
   send_style     SendStyle?
   type           MessageType?
   response_time  Float?
 }
+
 enum MessageType {
   order_placed
   intro
@@ -37,6 +39,7 @@ enum MessageType {
   announcement
   unsubscribe
 }
+
 enum SendStyle {
   celebration
   shooting_star

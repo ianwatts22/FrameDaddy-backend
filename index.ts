@@ -40,7 +40,7 @@ client.connect()
 enum AdminNumbers { Ian = '+13104974985', Adam = '+19165919394', Corn = '+19498702865', Lubin = '+16143019108', Boser = '+17324035224', }
 const admin_numbers: string[] = Object.values(AdminNumbers), sendblue_callback = `${link}/message-status`, coda_doc_key = 'Wkshedo2Sb', coda_messages_key = 'grid-_v0sM6s7e1', coda_users_key = 'grid-VBi-mmgrKi'
 
-const default_message: Message = { content: null, number: '', type: null, is_outbound: null, date: new Date(), was_downgraded: null, media_url: null, send_style: null, response_time: null }
+const default_message: Prisma.MessageCreateInput = { content: null, number: '', type: null, is_outbound: null, date: new Date(), was_downgraded: null, media_url: null, send_style: null, response_time: null }
 const default_user: User = { number: '', name: null, email: null, order: null }
 
 let users: string[], users_test = ['+13104974985', '+19165919394']
@@ -74,7 +74,7 @@ app.post('/fdorder', async (req: express.Request, res: express.Response) => {
     res.status(200).end()
 
     const order = req.body.line_items.map((item: any) => { `${item.quantity}x ${item.name}\n` }).join(`\n`)
-    let message_response: Message = { ...default_message, type: 'order_placed', number: user.number }
+    let message_response: Prisma.MessageCreateInput = { ...default_message, type: 'order_placed', number: user.number }
     await send_message({ ...message_response, content: `You've been framed 😎! Here's your order info (#${req.body.order_number})` })
     await send_message({ ...message_response, content: req.body.order_status_url, send_style: SendStyle.confetti })
     await send_message({ ...message_response, content: "Don’t forget to save my contact card for quick and easy ordering", media_url: contact_card })
@@ -113,9 +113,9 @@ const job = new cron.CronJob('0 0 */4 * *', async () => { local_data() })
 job.start()
 
 const contact_card = `${link}/assets/FrameDaddy.vcf`
-async function analyze_message(message: Message) {
+async function analyze_message(message: Prisma.MessageCreateInput) {
   try {
-    let message_response: Message = { ...default_message, number: message.number }, user
+    let message_response: Prisma.MessageCreateInput = { ...default_message, number: message.number }, user
     // intro message
     if (!users.includes(message.number) || (admin_numbers.includes(message.number) && message.content?.toLowerCase().startsWith('first'))) {
       user = await log_user({ ...default_user, number: message.number })
@@ -247,7 +247,7 @@ async function analyze_message(message: Message) {
   } catch (e) { error_alert(e) }
 }
 
-async function get_previous_messages(message: Message, amount: number = 14) {
+async function get_previous_messages(message: Prisma.MessageCreateInput, amount: number = 14) {
   let reset_message = new Date()
   try {
     const reset_message_loc = await prisma.message.findFirstOrThrow({
@@ -271,10 +271,10 @@ async function get_previous_messages(message: Message, amount: number = 14) {
   return previous_messages_string
 }
 
-async function layer_image(message: Message) {
+async function layer_image(message: Prisma.MessageCreateInput) {
   const t0 = Date.now()
   const joke = get_joke()
-  const message_response: Message = { ...default_message, number: message.number, type: MessageType.layered_image }
+  const message_response: Prisma.MessageCreateInput = { ...default_message, number: message.number, type: MessageType.layered_image }
   await send_message({ ...message_response, content: `Ready in a sec, in the meantime:\n${joke.joke}` })
   send_message({ ...message_response, content: joke.punchline, send_style: SendStyle.invisible })
   // setTimeout(() => {  }, 3000)
@@ -321,7 +321,7 @@ async function layer_image(message: Message) {
   } catch (e) { error_alert(e) }
 }
 
-async function send_message(message: Message, numbers?: string[]) {
+async function send_message(message: Prisma.MessageCreateInput, numbers?: string[]) {
   try {
     message.date = new Date(), message.is_outbound = true
     if (message.response_time) message.response_time = Date.now() / 1000 - message.response_time
@@ -347,7 +347,7 @@ async function blast() {
   send_message({ ...default_message, content: "Hey, we experienced a bug yesterday that prevented responses to new users (fixed one thing broke another 🤦). Should be good to go now! If you're having any more trouble feel free to reach out to me personally at (310) 497-4985. Sorry again for the inconvenience, have a great day and thank you for using FrameDaddy!", number: AdminNumbers.Ian } )
 }
 
-async function log_message(message: Message) {
+async function log_message(message: Prisma.MessageCreateInput) {
   try {
     await prisma.message.create({ data: message })
     const Coda_doc = await coda.getDoc(coda_doc_key)
@@ -367,7 +367,7 @@ async function log_user(user: User) {
   } catch (e) { error_alert(e) }
 }
 
-async function error_alert(error: any, message?: Message) { /* await send_message({ ...default_message, content: `ERROR\n${error}`, number: AdminNumbers.Ian }); */ console.error(`ERROR: ${error}`) }
+async function error_alert(error: any, message?: Prisma.MessageCreateInput) { /* await send_message({ ...default_message, content: `ERROR\n${error}`, number: AdminNumbers.Ian }); */ console.error(`ERROR: ${error}`) }
 
 const log_time = (time: number) => `${(Date.now() / 1000 - time).toFixed(1)}sec`
 
@@ -396,11 +396,11 @@ draftOrderCreateMerchantCheckout: https://shopify.dev/docs/api/admin-graphql/202
 } */
 
 const sample_vertical = 'https://storage.googleapis.com/inbound-file-store/47yEEPvo_61175D25-640A-4EA4-A3A1-608BBBBD76DDIMG_2914.heic', sample_horizontal = 'https://storage.googleapis.com/inbound-file-store/1Nq7Sytl_01C13E5D-6496-4979-A236-EC2945A10D47.heic'
-let test_message: Message = { ...default_message, content: 'test_message', number: '+13104974985', date: new Date(), media_url: sample_vertical }
+let test_message: Prisma.MessageCreateInput = { ...default_message, content: 'test_message', number: '+13104974985', date: new Date(), media_url: sample_vertical }
 let test_user: User = { number: '+13104974985', email: 'ianwatts22@gmail.com', name: 'Ian Watts', order: '' }
 
 // test(test_message)
-async function test(message: Message, user?: User, string?: string) {
+async function test(message: Prisma.MessageCreateInput, user?: User, string?: string) {
   send_message({ ...default_message, content: ``, number: '+13104974985' })
 }
 
