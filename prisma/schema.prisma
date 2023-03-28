@@ -19,7 +19,7 @@ model Message {
   content        String?
   media_url      String?
   number         String
-  date           DateTime     @db.Timestamptz
+  date           DateTime?    @db.Timestamptz
   is_outbound    Boolean?
   was_downgraded Boolean?     @default(false)
   send_style     SendStyle?

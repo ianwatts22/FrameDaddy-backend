@@ -40,7 +40,7 @@ client.connect()
 enum AdminNumbers { Ian = '+13104974985', Adam = '+19165919394', Corn = '+19498702865', Lubin = '+16143019108', Boser = '+17324035224', }
 const admin_numbers: string[] = Object.values(AdminNumbers), sendblue_callback = `${link}/message-status`, coda_doc_key = 'Wkshedo2Sb', coda_messages_key = 'grid-_v0sM6s7e1', coda_users_key = 'grid-VBi-mmgrKi'
 
-const default_message: Prisma.MessageCreateInput = { content: null, number: '', type: null, is_outbound: null, date: new Date(), was_downgraded: null, media_url: null, send_style: null, response_time: null }
+const default_message: Prisma.MessageCreateInput = { content: null, number: '', type: null, is_outbound: null, date: null, was_downgraded: null, media_url: null, send_style: null, response_time: null }
 const default_user: User = { number: '', name: null, email: null, order: null }
 
 let users: string[], users_test = ['+13104974985', '+19165919394']
@@ -259,7 +259,7 @@ async function get_previous_messages(message: Prisma.MessageCreateInput, amount:
         ]
       }, orderBy: { date: 'desc' }
     })  // TODO not ideal cuz parses EVERY message from that number lol
-    reset_message = reset_message_loc.date
+    if (reset_message_loc.date) reset_message = reset_message_loc.date
   } catch { reset_message.setDate(new Date().getDate() - 30) }
 
   const previous_messages = await prisma.message.findMany({
@@ -401,7 +401,8 @@ let test_user: User = { number: '+13104974985', email: 'ianwatts22@gmail.com', n
 
 // test(test_message)
 async function test(message: Prisma.MessageCreateInput, user?: User, string?: string) {
-  send_message({ ...default_message, content: ``, number: '+13104974985' })
+  // send_message({ ...default_message, content: ``, number: '+12132682683' })
+  send_message(message)
 }
 
 // message wasn't working: Sure thing! Just text me a photo (portrait or landscape) you want framed and I'll take care of the rest. You can only send and order one photo at a time, however multiple photo ordering will be ready shortly. The photos are 5"x7" and come in ONLY black or white frames for $19.99. Adam and Alex lovingly handframe, package, and ship your photo from New York. Frames have a wall-hook and easel-back to hang or stand up. If you need help with the texting service, you can upload your photo at our website: textframedaddy.com

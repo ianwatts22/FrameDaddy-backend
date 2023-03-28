@@ -52,7 +52,7 @@ var AdminNumbers;
     AdminNumbers["Boser"] = "+17324035224";
 })(AdminNumbers || (AdminNumbers = {}));
 const admin_numbers = Object.values(AdminNumbers), sendblue_callback = `${link}/message-status`, coda_doc_key = 'Wkshedo2Sb', coda_messages_key = 'grid-_v0sM6s7e1', coda_users_key = 'grid-VBi-mmgrKi';
-const default_message = { content: null, number: '', type: null, is_outbound: null, date: new Date(), was_downgraded: null, media_url: null, send_style: null, response_time: null };
+const default_message = { content: null, number: '', type: null, is_outbound: null, date: null, was_downgraded: null, media_url: null, send_style: null, response_time: null };
 const default_user = { number: '', name: null, email: null, order: null };
 let users, users_test = ['+13104974985', '+19165919394'];
 // send_message({ ...default_message, content: 'FrameDaddy admin: test !' }, users_test)
@@ -292,7 +292,8 @@ function get_previous_messages(message, amount = 14) {
                     ]
                 }, orderBy: { date: 'desc' }
             }); // TODO not ideal cuz parses EVERY message from that number lol
-            reset_message = reset_message_loc.date;
+            if (reset_message_loc.date)
+                reset_message = reset_message_loc.date;
         }
         catch (_a) {
             reset_message.setDate(new Date().getDate() - 30);
@@ -447,7 +448,8 @@ let test_user = { number: '+13104974985', email: 'ianwatts22@gmail.com', name: '
 // test(test_message)
 function test(message, user, string) {
     return __awaiter(this, void 0, void 0, function* () {
-        send_message(Object.assign(Object.assign({}, default_message), { content: ``, number: '+13104974985' }));
+        // send_message({ ...default_message, content: ``, number: '+12132682683' })
+        send_message(message);
     });
 }
 // message wasn't working: Sure thing! Just text me a photo (portrait or landscape) you want framed and I'll take care of the rest. You can only send and order one photo at a time, however multiple photo ordering will be ready shortly. The photos are 5"x7" and come in ONLY black or white frames for $19.99. Adam and Alex lovingly handframe, package, and ship your photo from New York. Frames have a wall-hook and easel-back to hang or stand up. If you need help with the texting service, you can upload your photo at our website: textframedaddy.com
